@@ -1,0 +1,38 @@
+# Credentials and personal configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Runtime data (benchmark fixtures remain versioned)
+EchoMind/data/
+EchoMind/logs/
+*.sqlite
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.db
+*.log
+*.cookies
+session.cookies
+
+# Dependencies, builds and editor state
+node_modules/
+dist/
+build/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.idea/
+.vscode/
+.agents/
+.codex/
+.DS_Store
+Thumbs.db

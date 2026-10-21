@@ -1,0 +1,742 @@
+<template>
+  <main :class="['app-shell', `app-shell-${activeView}`]">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="EchoMind 首页" @click.prevent="activeView = 'chat'">
+        <span class="brand-mark">E</span>
+        <span class="brand-name">EchoMind</span>
+      </a>
+
+      <nav class="view-nav" aria-label="工作区">
+        <button :class="{ active: activeView === 'chat' }" @click="activeView = 'chat'">对话</button>
+        <button :class="{ active: activeView === 'knowledge' }" @click="activeView = 'knowledge'">知识库</button>
+        <button v-if="settings.backend === 'python'" :class="{ active: activeView === 'tickets' }" @click="activeView = 'tickets'">工单</button>
+        <button :class="{ active: activeView === 'evaluation' }" @click="activeView = 'evaluation'">评测</button>
+      </nav>
+
+      <div class="topbar-tools">
+        <span class="environment-pill">
+          <i :class="healthOk ? 'online' : 'offline'"></i>
+          {{ currentBackend.label }}
+        </span>
+        <a class="docs-link" :href="docsUrl" target="_blank" rel="noreferrer">API 文档</a>
+        <button class="avatar-button" title="当前用户">{{ userInitial }}</button>
+      </div>
+    </header>
+
+    <div v-if="toast" class="toast" role="status">{{ toast }}</div>
+    <OperationsPanel v-if="settings.backend === 'python'" :key="currentBackend.baseUrl" :settings="settings"
+      :visible="activeView === 'tickets'" :refresh-key="operationsRefresh" @session-change="sessionChanged" @notice="showToast" />
+
+    <section v-if="activeView === 'chat'" class="page page-chat">
+      <div class="page-heading">
+        <div class="heading-copy">
+          <span class="kicker">Conversation lab</span>
+          <h1>和客服 Agent 对话</h1>
+          <p>发送一条真实请求，查看它如何识别意图、选择 Agent 并生成回复。</p>
+        </div>
+        <div class="heading-actions">
+          <span class="session-label">{{ settings.conversationId || '新会话' }}</span>
+          <button class="quiet-button" @click="clearConversation" :disabled="chatPending">清空</button>
+        </div>
+      </div>
+
+      <div class="chat-layout">
+        <section class="chat-stage">
+          <div class="stage-bar">
+            <div class="stage-context">
+              <span class="context-dot"></span>
+              <span>{{ currentBackend.baseUrl }}</span>
+            </div>
+            <span>{{ messages.length }} 条消息</span>
+          </div>
+
+          <div class="messages" ref="messageList">
+            <article v-for="item in messages" :key="item.id" :class="['message', item.role]">
+              <div class="message-meta">
+                <span>{{ item.role === 'user' ? '你' : currentBackend.label + ' Agent' }}</span>
+                <small v-if="item.meta">{{ item.meta }}</small>
+              </div>
+              <details v-if="item.progress?.length" class="message-progress" :open="item.streaming">
+                <summary>{{ item.streaming ? '正在处理' : '处理进度' }}<small v-if="item.streaming">{{ item.elapsed || 0 }} 秒</small></summary>
+                <ol><li v-for="(step, index) in item.progress" :key="index" :class="step.status">{{ step.message }}</li></ol>
+              </details>
+              <p v-if="item.content">{{ item.content }}<span v-if="item.streaming" class="stream-cursor" aria-label="正在生成">▍</span></p>
+              <p v-else-if="item.streaming" class="reply-waiting" role="status">{{ item.progress?.at(-1)?.message || '请求已发送，等待处理…' }}</p>
+              <details v-if="item.sources?.length" class="message-sources">
+                <summary>参考来源 · {{ item.sources.length }}</summary>
+                <article v-for="source in item.sources" :key="source.chunk_id || source.document_id || source.content">
+                  <strong>{{ source.title }}</strong><small>{{ source.product_version || source.document_version }} · {{ source.locator || source.chunk_id }}</small>
+                  <a v-if="safeSourceUrl(source.source_url)" :href="safeSourceUrl(source.source_url)" target="_blank" rel="noopener noreferrer">查看原文</a>
+                  <p>{{ source.content }}</p>
+                </article>
+              </details>
+              <p v-for="warning in item.warnings || []" :key="warning" class="danger">{{ warning }}</p>
+              <button v-if="item.tasks?.length" class="quiet-button" @click="activeView = 'tickets'">核对 {{ item.tasks.length }} 份工单草稿</button>
+              <div v-if="item.trace" class="message-trace">
+                <div class="trace-head">
+                  <span>工具调用</span>
+                  <small v-if="item.trace.requestId">#{{ item.trace.requestId }}</small>
+                </div>
+                <div v-if="item.trace.toolCalls?.length" class="trace-calls">
+                  <details v-for="(call, index) in item.trace.toolCalls" :key="`${item.id}-${index}`" open>
+                    <summary>
+                      <strong>{{ call.tool_name || 'unknown_tool' }}</strong>
+                      <span>{{ call.success ? '成功' : '失败' }}</span>
+                    </summary>
+                    <pre>{{ formatJson(call.input || {}) }}</pre>
+                  </details>
+                </div>
+                <div v-else class="trace-empty-block">
+                  <p>本次请求已生成 trace，但没有可展示的工具输入。</p>
+                  <p v-if="item.trace.toolsUsed?.length" class="trace-note">已调用：{{ item.trace.toolsUsed.join(' · ') }}</p>
+                </div>
+              </div>
+            </article>
+
+            <div v-if="messages.length === 0" class="empty-state">
+              <div class="empty-symbol">✦</div>
+              <h2>从一个客户问题开始</h2>
+              <p>下面的快捷问题只是起点，你也可以直接输入自己的测试用例。</p>
+              <div class="starter-prompts">
+                <button @click="usePrompt('我想申请退款，订单号是 #12345')">退款申请</button>
+                <button @click="usePrompt('登录时提示错误，应该怎么排查？')">技术排查</button>
+                <button @click="usePrompt('发票多久可以开具？')">发票咨询</button>
+              </div>
+            </div>
+          </div>
+
+          <form class="composer" @submit.prevent="sendMessage">
+            <textarea
+              v-model="draft"
+              rows="3"
+              placeholder="输入消息..."
+              @keydown.meta.enter.prevent="sendMessage"
+              @keydown.ctrl.enter.prevent="sendMessage"
+            ></textarea>
+            <div class="composer-bottom">
+              <span>⌘ / Ctrl + Enter 发送</span>
+              <button v-if="chatPending" type="button" class="quiet-button" @click="stopResponse">停止生成</button>
+              <button v-else type="submit" :disabled="busy || !draft.trim()">{{ busy ? '处理中' : '发送' }}</button>
+            </div>
+          </form>
+        </section>
+
+        <aside class="chat-sidebar" ref="sidebarRef">
+          <div class="chat-sidebar-scroll">
+            <section class="side-card session-card">
+              <div class="card-heading">
+                <div>
+                  <span class="kicker">Session</span>
+                  <h2>会话信息</h2>
+                </div>
+                <span class="status-copy muted">{{ settings.conversationId ? '已启用' : '新会话' }}</span>
+              </div>
+              <div class="session-grid">
+                <div>
+                  <span>会话 ID</span>
+                  <strong>{{ settings.conversationId || '自动生成' }}</strong>
+                </div>
+                <div>
+                  <span>用户 ID</span>
+                  <strong>{{ settings.userId || 'anonymous' }}</strong>
+                </div>
+              </div>
+            </section>
+
+            <section class="side-card connection-card">
+              <div class="card-heading">
+                <div>
+                  <span class="kicker">Connection</span>
+                  <h2>连接配置</h2>
+                </div>
+                <span class="status-copy" :class="healthOk ? 'success' : 'muted'">{{ healthLabel }}</span>
+              </div>
+
+              <div v-if="availableBackends.length > 1" class="backend-tabs">
+                <button v-for="type in availableBackends" :key="type" :disabled="chatPending" :class="{ active: settings.backend === type }" @click="switchBackend(type)">{{ backendMeta(type, settings).label }}</button>
+              </div>
+
+              <label>
+                <span>用户 ID</span>
+                <input v-model="settings.userId" @change="persist" :disabled="Boolean(authSession)" placeholder="u1001" />
+              </label>
+              <label>
+                <span>会话 ID</span>
+                <input v-model="settings.conversationId" @change="persist" placeholder="自动生成" />
+              </label>
+              <div class="side-actions">
+                <button @click="checkHealth">检查连接</button>
+                <button class="quiet-button" @click="refreshConsole">刷新</button>
+              </div>
+            </section>
+
+            <section class="side-card trace-card">
+              <div class="card-heading">
+                <div>
+                  <span class="kicker">Last trace</span>
+                  <h2>最近一次请求</h2>
+                </div>
+                <span class="trace-status" :class="lastResponse ? 'has-data' : ''"></span>
+              </div>
+
+              <div v-if="lastResponse" class="trace-body">
+                <div class="latency">
+                  <span>响应耗时</span>
+                  <strong>{{ lastResponse.latencyMs || '-' }}<small> ms</small></strong>
+                </div>
+                <dl class="detail-list">
+                  <div><dt>主 Agent</dt><dd>{{ lastResponse.primaryAgent || lastResponse.agentType || '-' }}</dd></div>
+                  <div><dt>意图</dt><dd>{{ lastResponse.intent || '-' }}</dd></div>
+                  <div><dt>置信度</dt><dd>{{ formatPercent(lastResponse.routingConfidence) }}</dd></div>
+                  <div><dt>知识库</dt><dd :class="lastResponse.knowledgeUsed ? 'success' : 'muted'">{{ lastResponse.knowledgeUsed ? '已使用' : '未使用' }}</dd></div>
+                  <div><dt>转人工</dt><dd :class="lastResponse.escalated ? 'danger' : 'muted'">{{ lastResponse.escalated ? '是' : '否' }}</dd></div>
+                </dl>
+                <p v-if="lastResponse.routingReason" class="routing-reason">{{ lastResponse.routingReason }}</p>
+                <div v-if="lastTrace?.trace" class="trace-call-list">
+                  <div class="trace-call-title">工具调用</div>
+                  <div v-for="(call, index) in lastTrace.trace.toolCalls" :key="`${call.tool_use_id || index}`" class="trace-call-item">
+                    <div class="trace-call-meta">
+                      <strong>{{ call.tool_name || 'unknown_tool' }}</strong>
+                      <span>{{ call.latency_ms || 0 }} ms</span>
+                    </div>
+                    <pre>{{ formatJson(call.input || {}) }}</pre>
+                  </div>
+                  <div v-if="!lastTrace.trace.toolCalls?.length" class="trace-empty-block">
+                    <p>这次 trace 没有记录到工具输入。</p>
+                    <p v-if="lastTrace.trace.toolsUsed?.length" class="trace-note">已调用：{{ lastTrace.trace.toolsUsed.join(' · ') }}</p>
+                  </div>
+                </div>
+              </div>
+              <p v-else class="side-empty">发送消息后，这里会显示 Agent 路由、意图和耗时。</p>
+            </section>
+
+            <section class="side-card monitor-card">
+              <div class="card-heading">
+                <div>
+                  <span class="kicker">Runtime</span>
+                  <h2>运行状态</h2>
+                </div>
+                <button class="link-button" @click="loadMonitor">刷新</button>
+              </div>
+              <div class="mini-stats">
+                <div><strong>{{ totalRequests }}</strong><span>请求</span></div>
+                <div><strong>{{ agentCount }}</strong><span>Agent</span></div>
+                <div><strong>{{ activeAlerts.length }}</strong><span>告警</span></div>
+              </div>
+              <div v-if="activeAlerts.length" class="alert-note">{{ activeAlerts[0].detail || activeAlerts[0].title }}</div>
+              <p v-else class="healthy-note">当前没有活跃告警。</p>
+            </section>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section v-else-if="activeView === 'knowledge'" class="page page-knowledge">
+      <div class="page-heading">
+        <div class="heading-copy">
+          <span class="kicker">Knowledge operations</span>
+          <h1>知识库</h1>
+          <p>搜索、补充和维护客服 Agent 使用的知识片段。</p>
+        </div>
+        <div class="count-display"><strong>{{ knowledgeCount }}</strong><span>chunks</span></div>
+      </div>
+
+      <div class="knowledge-layout">
+        <section class="workspace-card search-workspace">
+          <div class="card-heading">
+            <div><span class="kicker">Retrieval</span><h2>检索知识</h2></div>
+            <code>POST /search</code>
+          </div>
+          <div class="search-line">
+            <input v-model="searchQuery" placeholder="例如：退款多久到账" @keydown.enter="searchKnowledge" />
+            <select v-if="settings.backend === 'python'" v-model="searchStrategy" aria-label="检索方式"><option value="vector">向量</option><option value="bm25">BM25</option><option value="hybrid">混合检索</option></select>
+            <button @click="searchKnowledge" :disabled="busy || !searchQuery.trim()">搜索</button>
+          </div>
+          <div v-if="settings.backend === 'python'" class="form-pair search-filters">
+            <label><span>限定产品版本</span><input v-model="searchVersion" placeholder="选填，例如 2026.10" /></label>
+            <label><span>限定知识库</span><input v-model="searchKnowledgeBase" placeholder="选填，例如 default" /></label>
+          </div>
+          <div v-if="searchResults.length" class="result-list">
+            <article v-for="(item, index) in searchResults" :key="item.id || item.title || index" class="result-item">
+              <span class="result-number">{{ String(index + 1).padStart(2, '0') }}</span>
+              <div>
+                <div class="result-title"><strong>{{ item.title || '未命名文档' }}</strong><small>score {{ item.score ?? '-' }}</small></div>
+                <p>{{ item.content }}</p>
+              </div>
+            </article>
+          </div>
+          <div v-else class="workspace-empty">输入客户问题开始搜索。</div>
+        </section>
+
+        <section v-if="settings.backend !== 'python' || canEditKnowledge" class="workspace-card import-workspace">
+          <div class="card-heading">
+            <div><span class="kicker">Ingestion</span><h2>添加知识</h2></div>
+            <code>ChromaDB</code>
+          </div>
+          <label><span>标题</span><input v-model="docTitle" placeholder="退款补充政策" /></label>
+          <label><span>来源地址</span><input v-model="docSource" type="url" placeholder="https://…" /></label>
+          <label><span>产品版本</span><input v-model="docVersion" placeholder="例如 2026.10" /></label>
+          <label><span>内容</span><textarea v-model="docContent" rows="7" placeholder="输入客服规范、产品说明或排障流程"></textarea></label>
+          <div class="side-actions">
+            <button @click="submitKnowledge" :disabled="busy || !docTitle.trim() || !docContent.trim()">添加文档</button>
+            <label class="upload-button">上传文件<input type="file" accept=".txt,.md,.json" @change="handleUpload" /></label>
+          </div>
+        </section>
+      </div>
+      <KnowledgeDocuments v-if="settings.backend === 'python' && authSession" :key="authSession.organization_id" :settings="settings" :session="authSession" :refresh-key="knowledgeRefresh" @updated="loadStats" />
+
+      <section class="workspace-card skills-workspace">
+        <div class="card-heading">
+          <div><span class="kicker">Loaded skills</span><h2>已加载能力</h2></div>
+          <button v-if="settings.backend !== 'python' || authSession?.role === 'admin'" class="link-button" @click="reloadSkillSet">重新加载</button>
+        </div>
+        <div class="skill-table">
+          <div v-for="skill in skillsData.skills" :key="skill.name" class="skill-item">
+            <span class="skill-dot"></span><strong>{{ skill.name }}</strong><span>{{ skill.description || '业务规范能力' }}</span><small>{{ skill.content_chars || 0 }} chars</small>
+          </div>
+          <div v-if="!skillsData.skills.length" class="workspace-empty">暂无已加载 Skill。</div>
+        </div>
+      </section>
+    </section>
+
+    <section v-else-if="activeView === 'evaluation'" class="page page-evaluation">
+      <div class="page-heading">
+        <div class="heading-copy">
+          <span class="kicker">Evaluation lab</span>
+          <h1>评测 Agent</h1>
+          <p>运行 FastAPI 内置评测，查看意图识别、对话质量和回归结果。</p>
+        </div>
+        <button @click="runEvaluation" :disabled="busy || (settings.backend === 'python' && authSession?.role !== 'admin')">{{ busy ? '运行中...' : '运行评测' }}</button>
+      </div>
+      <p v-if="settings.backend === 'python' && authSession?.role !== 'admin'" class="muted">请使用管理员账号运行评测与管理基线。</p>
+      <section v-if="settings.backend === 'python' && authSession?.role === 'admin'" class="workspace-card report-history">
+        <div class="card-heading"><h2>历史报告</h2><button class="quiet-button" @click="loadReports">刷新</button></div>
+        <div v-for="report in reports" :key="report.run_id" class="document-row">
+          <button class="quiet-button" @click="evalData = report">{{ report.timestamp }} · {{ formatPercent(report.pass_rate) }}</button>
+          <button :disabled="busy" @click="promoteReport(report)">设为回归基线</button>
+        </div>
+      </section>
+
+      <div v-if="evalData" class="evaluation-content">
+        <div class="evaluation-summary">
+          <div class="score-hero"><span>Pass rate</span><strong>{{ formatPercent(evalData.pass_rate) }}</strong><small>{{ evalData.passed }} / {{ evalData.total }} cases passed</small></div>
+          <div><span>通过</span><strong>{{ evalData.passed }}</strong></div>
+          <div><span>总数</span><strong>{{ evalData.total }}</strong></div>
+          <div><span>回归</span><strong :class="evalData.regressions?.length ? 'danger' : 'success'">{{ evalData.regressions?.length || 0 }}</strong></div>
+        </div>
+        <div class="evaluation-layout">
+          <section class="workspace-card">
+            <div class="card-heading"><div><span class="kicker">Scores</span><h2>平均评分</h2></div></div>
+            <div class="score-list">
+              <div v-for="(value, key) in evalData.avg_scores" :key="key"><span>{{ key }}</span><i><b :style="{ width: `${Math.min(Number(value) * 100, 100)}%` }"></b></i><strong>{{ Number(value).toFixed(2) }}</strong></div>
+            </div>
+          </section>
+          <section class="workspace-card">
+            <div class="card-heading"><div><span class="kicker">Recommendations</span><h2>优化建议</h2></div></div>
+            <div v-if="evalData.recommendations?.length" class="recommendations"><p v-for="(item, index) in evalData.recommendations" :key="index">{{ item }}</p></div>
+            <div v-else class="workspace-empty">本次评测没有返回额外建议。</div>
+          </section>
+        </div>
+      </div>
+      <p v-if="evalData?.coverage != null">有效评测覆盖率 {{ formatPercent(evalData.coverage) }} · 失败 {{ evalData.failed }} · 报告 {{ evalData.run_id }}<br />{{ evalData.metadata?.baseline_comparison?.reasons?.join('；') }}</p>
+      <div v-if="!evalData" class="evaluation-empty"><div class="empty-symbol">◎</div><h2>还没有评测结果</h2><p>点击右上角运行一次评测。</p></div>
+    </section>
+  </main>
+</template>
+
+<script setup>
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import OperationsPanel from './components/OperationsPanel.vue'
+import KnowledgeDocuments from './components/KnowledgeDocuments.vue'
+import { evaluationReports, promoteEvaluation } from './lib/operations.js'
+import {
+  addKnowledge,
+  availableBackendIds,
+  backendMeta,
+  createInitialSettings,
+  reloadSkills,
+  requestChatStream,
+  requestHealth,
+  requestKnowledgeStats,
+  requestMonitor,
+  requestSearch,
+  requestToolTrace,
+  requestSkills,
+  runEvaluation as requestEvaluation,
+  saveSettings,
+  uploadKnowledge
+} from './lib/backends'
+
+const availableBackends = availableBackendIds()
+const settings = reactive(createInitialSettings())
+const activeView = ref('chat')
+const authSession = ref(null), operationsRefresh = ref(0), knowledgeRefresh = ref(0), reports = ref([])
+const canEditKnowledge = computed(() => ['admin', 'kb_admin'].includes(authSession.value?.role))
+const messages = ref([])
+const draft = ref('')
+const busy = ref(false)
+const chatPending = ref(false)
+let chatController
+let chatTimer
+let scrollScheduled = false
+const healthOk = ref(false)
+const healthLabel = ref('未检查')
+const statusText = ref('')
+const knowledgeCount = ref('-')
+const searchQuery = ref('退款多久能到账')
+const searchResults = ref([])
+const searchStrategy = ref('vector'), docSource = ref(''), docVersion = ref('')
+const searchVersion = ref(''), searchKnowledgeBase = ref('')
+const docTitle = ref('退款补充政策')
+const docContent = ref('大促期间退款审核时间可能延长到 3-5 个工作日。')
+const messageList = ref(null)
+const sidebarRef = ref(null)
+const monitorData = ref({ agent_stats: {}, tool_stats: {}, active_alerts: [], suggestions: [] })
+const skillsData = ref({ count: 0, skills: [], errors: [] })
+const lastResponse = ref(null)
+const lastTrace = ref(null)
+const evalData = ref(null)
+const toast = ref('')
+let toastTimer
+let messageSequence = 0
+let sidebarObserver
+
+const currentBackend = computed(() => backendMeta(settings.backend, settings))
+const docsUrl = computed(() => `${currentBackend.value.baseUrl}/docs`)
+const userInitial = computed(() => (settings.userId || 'U').slice(0, 1).toUpperCase())
+const activeAlerts = computed(() => monitorData.value.active_alerts || [])
+const agentCount = computed(() => Object.keys(monitorData.value.agent_stats || {}).length)
+const totalRequests = computed(() => Object.values(monitorData.value.agent_stats || {}).reduce((sum, item) => sum + Number(item.total || 0), 0))
+
+watch(() => settings.conversationId, persist)
+watch(activeView, value => { if (value === 'evaluation' && authSession.value?.role === 'admin') loadReports() })
+onMounted(() => {
+  refreshConsole()
+  updateSidebarHeight()
+  if (typeof ResizeObserver !== 'undefined') {
+    sidebarObserver = new ResizeObserver(updateSidebarHeight)
+    if (sidebarRef.value) sidebarObserver.observe(sidebarRef.value)
+  }
+  window.addEventListener('resize', updateSidebarHeight)
+})
+
+onBeforeUnmount(() => {
+  chatController?.abort()
+  clearInterval(chatTimer)
+  sidebarObserver?.disconnect?.()
+  window.removeEventListener('resize', updateSidebarHeight)
+})
+
+function persist() { saveSettings(settings) }
+
+function sessionChanged(session) {
+  const userId = session?.user_id || session?.user?.id
+  if (!session || (userId && settings.userId !== userId)) {
+    chatController?.abort()
+    messages.value = []; lastResponse.value = null; lastTrace.value = null
+    searchResults.value = []; evalData.value = null; reports.value = []; settings.conversationId = ''
+  }
+  authSession.value = session
+  if (userId) settings.userId = userId
+  knowledgeRefresh.value += 1
+  persist(); refreshConsole()
+}
+
+function safeSourceUrl(value) {
+  try { const url = new URL(value); return ['http:', 'https:'].includes(url.protocol) ? url.href : '' } catch { return '' }
+}
+
+async function loadReports() {
+  try { reports.value = (await evaluationReports(settings)).items } catch (error) { showToast(error.message) }
+}
+
+async function promoteReport(report) {
+  busy.value = true
+  try { await promoteEvaluation(settings, report.run_id); showToast('已设置回归基线，后续评测会检查版本是否可比') }
+  catch (error) { showToast(error.message) } finally { busy.value = false }
+}
+
+function updateSidebarHeight() {
+  const sidebar = sidebarRef.value
+  if (!sidebar) return
+  const rect = sidebar.getBoundingClientRect()
+  const height = Math.max(320, Math.floor(rect.height))
+  sidebar.style.setProperty('--sidebar-height', `${height}px`)
+}
+
+function switchBackend(type) {
+  if (chatPending.value) return
+  settings.backend = type
+  authSession.value = null
+  settings.conversationId = ''
+  persist()
+  healthOk.value = false
+  healthLabel.value = '未检查'
+  messages.value = []
+  searchResults.value = []
+  lastResponse.value = null
+  lastTrace.value = null
+  refreshConsole()
+}
+
+async function refreshConsole() {
+  await Promise.allSettled([checkHealth(), loadStats(), loadMonitor(), loadSkills()])
+}
+
+async function checkHealth() {
+  try {
+    const data = await requestHealth(settings.backend, settings)
+    healthOk.value = data.status === 'ok'
+    healthLabel.value = data.status || 'ok'
+    statusText.value = JSON.stringify(data, null, 2)
+  } catch (error) {
+    healthOk.value = false
+    healthLabel.value = '不可用'
+    statusText.value = error.message
+
+    // When the saved backend is stale, try the other configured service once.
+    const fallback = availableBackends.find((type) => type !== settings.backend)
+    if (fallback) {
+      try {
+        const fallbackData = await requestHealth(fallback, settings)
+        if (fallbackData.status === 'ok') {
+          settings.backend = fallback
+          persist()
+          healthOk.value = true
+          healthLabel.value = fallbackData.status
+          statusText.value = JSON.stringify(fallbackData, null, 2)
+          await Promise.allSettled([loadStats(), loadMonitor(), loadSkills()])
+        }
+      } catch {
+        // Keep the original error visible when both services are unavailable.
+      }
+    }
+  }
+}
+
+async function loadStats() {
+  try {
+    const data = await requestKnowledgeStats(settings.backend, settings)
+    knowledgeCount.value = data.total_chunks ?? data.totalChunks ?? '-'
+  } catch {
+    knowledgeCount.value = '-'
+  }
+}
+
+async function loadMonitor() {
+  try {
+    monitorData.value = await requestMonitor(settings.backend, settings)
+  } catch {
+    monitorData.value = { agent_stats: {}, tool_stats: {}, active_alerts: [], suggestions: [] }
+  }
+}
+
+async function loadSkills() {
+  try {
+    skillsData.value = await requestSkills(settings.backend, settings)
+  } catch {
+    skillsData.value = { count: 0, skills: [], errors: [] }
+  }
+}
+
+async function reloadSkillSet() {
+  busy.value = true
+  try {
+    skillsData.value = await reloadSkills(settings.backend, settings)
+    showToast('Skills 已重新加载')
+  } catch (error) {
+    statusText.value = error.message
+    showToast('Skills 加载失败')
+  } finally { busy.value = false }
+}
+
+async function sendMessage() {
+  const content = draft.value.trim()
+  if (!content || busy.value) return
+  messages.value.push({ id: createMessageId(), role: 'user', content })
+  draft.value = ''
+  busy.value = true
+  chatPending.value = true
+  chatController = new AbortController()
+  const reply = reactive({ id: createMessageId(), role: 'assistant', content: '', streaming: true,
+    elapsed: 0, progress: [{ message: '请求已发送，等待处理', status: 'pending' }], trace: null })
+  messages.value.push(reply)
+  const startedAt = Date.now()
+  chatTimer = setInterval(() => { reply.elapsed = Math.floor((Date.now() - startedAt) / 1000) }, 1000)
+  scheduleChatScroll()
+  try {
+    const response = await requestChatStream(settings.backend, settings, content, (event) => {
+      if (event.type === 'session' && !settings.conversationId) {
+        settings.conversationId = event.conv_id
+        persist()
+      } else if (event.type === 'stage') {
+        for (const step of reply.progress) {
+          if (step.status === 'pending' && !step.toolId) step.status = 'done'
+        }
+        reply.progress.push({ message: event.message, status: 'pending' })
+      } else if (event.type === 'answer_start') {
+        reply.content = ''
+      } else if (event.type === 'text_delta') {
+        reply.content += event.text
+      } else if (event.type === 'tool_start') {
+        const labels = { search_knowledge_base: '检索知识库', lookup_error_code: '查询错误码',
+          build_diagnostic_plan: '制定排查步骤', check_billing_fields: '检查账单信息',
+          compare_amounts: '比较金额', inspect_request_context: '检查请求信息',
+          suggest_required_fields: '核对所需信息', create_handoff_summary: '整理人工交接摘要' }
+        reply.progress.push({ message: `正在${labels[event.tool_name] || '执行工具'}`,
+          toolId: event.tool_use_id, status: 'pending' })
+      } else if (event.type === 'tool_end') {
+        const step = reply.progress.find((item) => item.toolId === event.tool_use_id && item.status === 'pending')
+        const success = event.success && event.result_success !== false
+        if (step) {
+          step.status = success ? 'done' : 'error'
+          step.message = step.message.replace(/^正在/, '') + (success ? '完成' : '失败')
+        }
+        if (!reply.trace) reply.trace = { toolCalls: [] }
+        reply.trace.toolCalls.push(event)
+      }
+      scheduleChatScroll()
+    }, chatController.signal)
+    if (response.conversationId && !settings.conversationId) {
+      settings.conversationId = response.conversationId
+      persist()
+    }
+    lastResponse.value = response
+    reply.streaming = false
+    reply.content = response.response
+    reply.sources = response.sources; reply.tasks = response.tasks; reply.warnings = response.warnings
+    if (response.tasks?.length) operationsRefresh.value += 1
+    for (const step of reply.progress) { if (step.status === 'pending') step.status = 'done' }
+    lastTrace.value = await loadToolTrace(response.requestId)
+    const meta = [response.intent, response.primaryAgent || response.agentType, response.knowledgeUsed ? 'RAG' : '', response.escalated ? '转人工' : ''].filter(Boolean).join(' · ')
+    reply.meta = meta
+    reply.trace = lastTrace.value?.trace || reply.trace
+    await loadMonitor()
+  } catch (error) {
+    const stopped = error.name === 'AbortError'
+    reply.meta = stopped ? '已停止生成' : '请求失败'
+    if (!reply.content) reply.content = stopped ? '已停止生成。' : error.message
+    else if (!stopped) reply.content += `\n\n${error.message}`
+    for (const step of reply.progress) { if (step.status === 'pending') step.status = stopped ? 'stopped' : 'error' }
+  } finally {
+    reply.streaming = false
+    clearInterval(chatTimer)
+    chatController = null
+    chatPending.value = false
+    busy.value = false
+    await nextTick()
+    messageList.value?.scrollTo({ top: messageList.value.scrollHeight, behavior: 'smooth' })
+  }
+}
+
+function stopResponse() { chatController?.abort() }
+
+function scheduleChatScroll() {
+  if (scrollScheduled) return
+  scrollScheduled = true
+  requestAnimationFrame(async () => {
+    await nextTick()
+    messageList.value?.scrollTo({ top: messageList.value.scrollHeight, behavior: 'auto' })
+    scrollScheduled = false
+  })
+}
+
+function usePrompt(prompt) { draft.value = prompt }
+
+function clearConversation() {
+  if (chatPending.value) return
+  messages.value = []
+  lastResponse.value = null
+  lastTrace.value = null
+  settings.conversationId = ''
+  persist()
+}
+
+async function searchKnowledge() {
+  busy.value = true
+  try {
+    const data = await requestSearch(settings.backend, settings, searchQuery.value, 5, searchStrategy.value, true,
+      { product_version: searchVersion.value, knowledge_base_id: searchKnowledgeBase.value })
+    searchResults.value = data.results || []
+    showToast(`检索完成，返回 ${searchResults.value.length} 条结果`)
+  } catch (error) {
+    statusText.value = error.message
+    showToast('检索失败，请检查连接')
+  } finally { busy.value = false }
+}
+
+async function submitKnowledge() {
+  busy.value = true
+  try {
+    const data = await addKnowledge(settings.backend, settings, [{ title: docTitle.value.trim(), content: docContent.value.trim(), source_url: docSource.value.trim(), product_version: docVersion.value.trim() }])
+    knowledgeRefresh.value += 1
+    statusText.value = JSON.stringify(data, null, 2)
+    await loadStats()
+    showToast('文档已添加')
+  } catch (error) {
+    statusText.value = error.message
+    showToast('文档导入失败')
+  } finally { busy.value = false }
+}
+
+async function handleUpload(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file) return
+  busy.value = true
+  try {
+    const data = await uploadKnowledge(settings.backend, settings, file)
+    knowledgeRefresh.value += 1
+    statusText.value = JSON.stringify(data, null, 2)
+    await loadStats()
+    showToast(`${file.name} 导入成功`)
+  } catch (error) {
+    statusText.value = error.message
+    showToast('文件导入失败')
+  } finally { busy.value = false }
+}
+
+async function runEvaluation() {
+  busy.value = true
+  try {
+    evalData.value = await requestEvaluation(settings.backend, settings)
+    if (settings.backend === 'python') await loadReports()
+    showToast('评测完成')
+  } catch (error) {
+    statusText.value = error.message
+    showToast('评测运行失败')
+  } finally { busy.value = false }
+}
+
+async function loadToolTrace(requestId) {
+  try {
+    return await requestToolTrace(settings.backend, settings, requestId)
+  } catch {
+    return null
+  }
+}
+
+function formatPercent(value) {
+  const number = Number(value || 0)
+  return `${(number <= 1 ? number * 100 : number).toFixed(1)}%`
+}
+
+function formatJson(value) {
+  try {
+    return JSON.stringify(value ?? {}, null, 2)
+  } catch {
+    return String(value ?? '')
+  }
+}
+
+function createMessageId() {
+  messageSequence += 1
+  return `message-${Date.now()}-${messageSequence}`
+}
+
+function showToast(message) {
+  toast.value = message
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { toast.value = '' }, 2600)
+}
+</script>

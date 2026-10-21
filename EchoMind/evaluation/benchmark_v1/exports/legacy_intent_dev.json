@@ -1,0 +1,157 @@
+{
+  "intent_cases": [
+    {
+      "message": "你们的在线支持窗口每天几点开放？",
+      "expected_intent": "query"
+    },
+    {
+      "message": "周末能在什么时段联系在线支持？",
+      "expected_intent": "query"
+    },
+    {
+      "message": "等待处理的时间远超你们承诺，我对此很失望。",
+      "expected_intent": "complaint"
+    },
+    {
+      "message": "你们总让我继续等，体验实在太糟糕了。",
+      "expected_intent": "complaint"
+    },
+    {
+      "message": "请替我预约周四下午的产品演示。",
+      "expected_intent": "request"
+    },
+    {
+      "message": "帮我约一个工作日上午的使用培训。",
+      "expected_intent": "request"
+    },
+    {
+      "message": "下午好，客服同学。",
+      "expected_intent": "greeting"
+    },
+    {
+      "message": "晚上好，打个招呼。",
+      "expected_intent": "greeting"
+    },
+    {
+      "message": "请把这次事件按二级升级流程处理。",
+      "expected_intent": "escalation"
+    },
+    {
+      "message": "这个事项需要启动上一级处理流程。",
+      "expected_intent": "escalation"
+    },
+    {
+      "message": "容器的内存占用持续升高，怎样定位原因？",
+      "expected_intent": "technical"
+    },
+    {
+      "message": "服务的内存曲线一直上涨，该从哪项配置排查？",
+      "expected_intent": "technical"
+    },
+    {
+      "message": "套餐的计费周期从开通当天还是自然月开始？",
+      "expected_intent": "billing"
+    },
+    {
+      "message": "订阅费用按自然月结算还是按开通日期滚动？",
+      "expected_intent": "billing"
+    },
+    {
+      "message": "我想更新企业联系人姓名。",
+      "expected_intent": "account"
+    },
+    {
+      "message": "组织联系人换了，需要修改资料里的姓名。",
+      "expected_intent": "account"
+    },
+    {
+      "message": "你的说明很清楚，这次帮助确实解决了困惑。",
+      "expected_intent": "feedback"
+    },
+    {
+      "message": "解释很耐心，这次服务值得肯定。",
+      "expected_intent": "feedback"
+    },
+    {
+      "message": "订单 D3028 目前还处于待审核状态吗？",
+      "expected_intent": "order_status"
+    },
+    {
+      "message": "帮我看一下 D3028 是否已经审核完成。",
+      "expected_intent": "order_status"
+    },
+    {
+      "message": "已经交给快递的包裹预计周几送到？",
+      "expected_intent": "logistics"
+    },
+    {
+      "message": "包裹已经在运输中，还需要多久送达？",
+      "expected_intent": "logistics"
+    },
+    {
+      "message": "签收后的第六天还可以提交退货申请吗？",
+      "expected_intent": "refund"
+    },
+    {
+      "message": "收到货六天后想退货，是否仍在申请期限内？",
+      "expected_intent": "refund"
+    },
+    {
+      "message": "电子发票开具以后从哪个页面下载？",
+      "expected_intent": "invoice"
+    },
+    {
+      "message": "已经开好的发票文件应该在哪里领取？",
+      "expected_intent": "invoice"
+    },
+    {
+      "message": "同一次购买生成两笔扣费流水，如何核验？",
+      "expected_intent": "payment_issue"
+    },
+    {
+      "message": "银行卡出现两条相同消费记录，会不会扣了两次？",
+      "expected_intent": "payment_issue"
+    },
+    {
+      "message": "我的账户被陌生设备操作过，担心已经被盗。",
+      "expected_intent": "account_security"
+    },
+    {
+      "message": "发现不认识的设备访问了账号，需要保护账户。",
+      "expected_intent": "account_security"
+    },
+    {
+      "message": "登录接口返回 401，凭证应该如何检查？",
+      "expected_intent": "technical_login"
+    },
+    {
+      "message": "提交登录请求后一直收到 401 认证错误。",
+      "expected_intent": "technical_login"
+    },
+    {
+      "message": "启动程序以后立刻闪退，连首页都没出现。",
+      "expected_intent": "technical_crash"
+    },
+    {
+      "message": "应用一打开就自动退出，需要排查启动崩溃。",
+      "expected_intent": "technical_crash"
+    },
+    {
+      "message": "我希望接下来直接与人工客服对话。",
+      "expected_intent": "human_handoff"
+    },
+    {
+      "message": "请安排一位真人客服继续接待我。",
+      "expected_intent": "human_handoff"
+    },
+    {
+      "message": "帮我写一首描写海边日出的诗。",
+      "expected_intent": "other"
+    },
+    {
+      "message": "请创作一个关于月亮的童话故事。",
+      "expected_intent": "other"
+    }
+  ],
+  "dialog_cases": []
+}

@@ -1,0 +1,7 @@
+# Synthetic fixtures are intentional source files, unlike live application data.
+!data/
+!data/*.jsonl
+__pycache__/
+*.pyc
+# Live API reports may contain responses or identifiers from a test service.
+reports/api_*

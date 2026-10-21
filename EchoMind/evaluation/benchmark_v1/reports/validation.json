@@ -1,0 +1,93 @@
+{
+  "valid": true,
+  "errors": [],
+  "manifest": {
+    "dataset_version": "echomind-benchmark-v1.0",
+    "schema_version": "1.0",
+    "created_date": "2026-10-21",
+    "origin": "synthetic_original",
+    "human_verified_cases": 0,
+    "review_status": "all_pending_independent_human_review",
+    "documents": 36,
+    "cases": 276,
+    "counts_by_kind": {
+      "contract": 48,
+      "intent": 120,
+      "rag": 108
+    },
+    "counts_by_split": {
+      "dev": 92,
+      "test": 184
+    },
+    "counts_by_kind_split": {
+      "contract": {
+        "dev": 16,
+        "test": 32
+      },
+      "intent": {
+        "dev": 40,
+        "test": 80
+      },
+      "rag": {
+        "dev": 36,
+        "test": 72
+      }
+    },
+    "intent_labels": [
+      "account",
+      "account_security",
+      "billing",
+      "complaint",
+      "escalation",
+      "feedback",
+      "greeting",
+      "human_handoff",
+      "invoice",
+      "logistics",
+      "order_status",
+      "other",
+      "payment_issue",
+      "query",
+      "refund",
+      "request",
+      "technical",
+      "technical_crash",
+      "technical_login"
+    ],
+    "rag_categories": {
+      "clarification": 12,
+      "multi_hop": 12,
+      "multi_turn": 12,
+      "single_hop": 48,
+      "unanswerable": 12,
+      "version_specific": 12
+    },
+    "contract_suites": {
+      "security": 24,
+      "workflow": 24
+    },
+    "source_family_groups": 123,
+    "prompt_template_exact_overlaps": [],
+    "files": {
+      "corpus.jsonl": {
+        "sha256": "24f1f6371e635490fe6aaf454b4f09221a9468bdc567d60c00225ec12cbe9059"
+      },
+      "intent_cases.jsonl": {
+        "sha256": "3d74ec6f1c05f61a29fe02f5f929de3b6cb8d880d50a55b31889acaddae78405"
+      },
+      "rag_cases.jsonl": {
+        "sha256": "3e13f7660be233111902323831d392843fb2e66f4374c7140e9808f699248bb8"
+      },
+      "contract_cases.jsonl": {
+        "sha256": "116068ccca280ca149dfc8d683c8eb44ccc5674cd37adcaea6259fae7b3031a7"
+      }
+    },
+    "limitations": [
+      "Synthetic fixtures; not production traffic or independently human-verified gold.",
+      "Frozen grouped test fixtures are visible in this repository, not a blind benchmark.",
+      "Corpus is intentionally indexed across dev/test; test questions, labels and facts are never index inputs.",
+      "Contracts describe future acceptance requirements; no implementation pass is implied.",
+      "No external benchmark rows or user data are bundled."
+    ]
+  }
+}

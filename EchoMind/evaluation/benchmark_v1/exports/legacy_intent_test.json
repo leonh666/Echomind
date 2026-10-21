@@ -1,0 +1,309 @@
+{
+  "intent_cases": [
+    {
+      "message": "请说明帮助中心可以用哪些语言阅读。",
+      "expected_intent": "query"
+    },
+    {
+      "message": "我想了解说明文档是否提供简体中文。",
+      "expected_intent": "query"
+    },
+    {
+      "message": "在哪里可以看到服务规则的最新公告？",
+      "expected_intent": "query"
+    },
+    {
+      "message": "服务说明更新以后会通过哪个页面公布？",
+      "expected_intent": "query"
+    },
+    {
+      "message": "每次都让我重复说明问题，服务让我很不满意。",
+      "expected_intent": "complaint"
+    },
+    {
+      "message": "同一件事解释了好几遍，客服还是没弄清楚。",
+      "expected_intent": "complaint"
+    },
+    {
+      "message": "回复态度很敷衍，我对这次服务提出投诉。",
+      "expected_intent": "complaint"
+    },
+    {
+      "message": "这次接待毫无耐心，我要反映服务态度问题。",
+      "expected_intent": "complaint"
+    },
+    {
+      "message": "请把下次使用指导改到下周一。",
+      "expected_intent": "request"
+    },
+    {
+      "message": "我预约的演示时间要改，请协助调整。",
+      "expected_intent": "request"
+    },
+    {
+      "message": "请撤回刚才提交的产品体验预约。",
+      "expected_intent": "request"
+    },
+    {
+      "message": "我不参加这次培训了，请取消预约。",
+      "expected_intent": "request"
+    },
+    {
+      "message": "您好，刚刚进入这个对话窗口。",
+      "expected_intent": "greeting"
+    },
+    {
+      "message": "哈喽，先来问声好。",
+      "expected_intent": "greeting"
+    },
+    {
+      "message": "客服朋友，上午好呀。",
+      "expected_intent": "greeting"
+    },
+    {
+      "message": "见到您很高兴，先问好。",
+      "expected_intent": "greeting"
+    },
+    {
+      "message": "现有支持层级无法处理，请升级到主管级别。",
+      "expected_intent": "escalation"
+    },
+    {
+      "message": "这件事需要提交到更高级别的支持流程。",
+      "expected_intent": "escalation"
+    },
+    {
+      "message": "请对本事件启动升级审查程序。",
+      "expected_intent": "escalation"
+    },
+    {
+      "message": "我申请按升级机制重新审查本问题。",
+      "expected_intent": "escalation"
+    },
+    {
+      "message": "接口延迟突然增加，但没有错误码，怎么诊断？",
+      "expected_intent": "technical"
+    },
+    {
+      "message": "请求响应很慢且没有报错，应该检查哪些环节？",
+      "expected_intent": "technical"
+    },
+    {
+      "message": "怎样给这个服务接入指标采集？",
+      "expected_intent": "technical"
+    },
+    {
+      "message": "我需要了解监控端点的配置步骤。",
+      "expected_intent": "technical"
+    },
+    {
+      "message": "请解释账单上的服务用量这一栏。",
+      "expected_intent": "billing"
+    },
+    {
+      "message": "账单里的计量单位代表什么含义？",
+      "expected_intent": "billing"
+    },
+    {
+      "message": "年度套餐和月度套餐怎样计算费用？",
+      "expected_intent": "billing"
+    },
+    {
+      "message": "改成按年计费以后收费规则是什么？",
+      "expected_intent": "billing"
+    },
+    {
+      "message": "个人资料里的展示名称在哪里编辑？",
+      "expected_intent": "account"
+    },
+    {
+      "message": "我要变更账户页面显示的昵称。",
+      "expected_intent": "account"
+    },
+    {
+      "message": "请说明如何调整账号的通知偏好。",
+      "expected_intent": "account"
+    },
+    {
+      "message": "我想修改账户接收产品通知的设置。",
+      "expected_intent": "account"
+    },
+    {
+      "message": "按照建议操作已经恢复，感谢你们的支持。",
+      "expected_intent": "feedback"
+    },
+    {
+      "message": "问题处理好了，给这次支持一个好评。",
+      "expected_intent": "feedback"
+    },
+    {
+      "message": "新的帮助页面很好用，特地来表扬一下。",
+      "expected_intent": "feedback"
+    },
+    {
+      "message": "这次文档改进让我很满意，想反馈给团队。",
+      "expected_intent": "feedback"
+    },
+    {
+      "message": "订单页面显示处理中，现在走到哪个环节了？",
+      "expected_intent": "order_status"
+    },
+    {
+      "message": "这笔订单当前是在备货还是等待确认？",
+      "expected_intent": "order_status"
+    },
+    {
+      "message": "订单已经完成还是被系统关闭了？",
+      "expected_intent": "order_status"
+    },
+    {
+      "message": "我想核实订单现在是否仍然有效。",
+      "expected_intent": "order_status"
+    },
+    {
+      "message": "快递轨迹两天没有变化，应怎样申请查件？",
+      "expected_intent": "logistics"
+    },
+    {
+      "message": "物流节点一直停在中转站，下一步怎么查？",
+      "expected_intent": "logistics"
+    },
+    {
+      "message": "收件地址偏远，承运方是否要增加配送时间？",
+      "expected_intent": "logistics"
+    },
+    {
+      "message": "运输到偏远地区通常是否有额外时效？",
+      "expected_intent": "logistics"
+    },
+    {
+      "message": "退款审核通过以后，原路退回大约需要几天？",
+      "expected_intent": "refund"
+    },
+    {
+      "message": "退回款项已经获批，到账还需要等待多久？",
+      "expected_intent": "refund"
+    },
+    {
+      "message": "退回商品被仓库验收后怎样继续申请退款？",
+      "expected_intent": "refund"
+    },
+    {
+      "message": "退件已经入库，接下来要走哪一步退款流程？",
+      "expected_intent": "refund"
+    },
+    {
+      "message": "发票上的公司抬头写错了，怎样更正？",
+      "expected_intent": "invoice"
+    },
+    {
+      "message": "开票名称有误，需要重新填写企业抬头。",
+      "expected_intent": "invoice"
+    },
+    {
+      "message": "申请企业发票需要提供哪些税务信息？",
+      "expected_intent": "invoice"
+    },
+    {
+      "message": "开单位发票时纳税识别信息怎么提交？",
+      "expected_intent": "invoice"
+    },
+    {
+      "message": "付款界面失败，但银行已经扣走金额。",
+      "expected_intent": "payment_issue"
+    },
+    {
+      "message": "页面提示交易没完成，账户却减少了余额。",
+      "expected_intent": "payment_issue"
+    },
+    {
+      "message": "支付后页面仍显示未付款，该怎么排查？",
+      "expected_intent": "payment_issue"
+    },
+    {
+      "message": "钱已付出，系统订单却一直等待支付。",
+      "expected_intent": "payment_issue"
+    },
+    {
+      "message": "忘了原密码，想通过绑定信息重新设置密码。",
+      "expected_intent": "account_security"
+    },
+    {
+      "message": "密码记不起来了，应通过什么方式重设？",
+      "expected_intent": "account_security"
+    },
+    {
+      "message": "没有授权的情况下绑定手机号被改动了。",
+      "expected_intent": "account_security"
+    },
+    {
+      "message": "账户的安全联系方式被陌生人修改了。",
+      "expected_intent": "account_security"
+    },
+    {
+      "message": "收不到登录用的一次性验证码，如何排查？",
+      "expected_intent": "technical_login"
+    },
+    {
+      "message": "验证码迟迟不来，导致我进不了账号。",
+      "expected_intent": "technical_login"
+    },
+    {
+      "message": "凭证仍有效，但认证页面一直循环跳转。",
+      "expected_intent": "technical_login"
+    },
+    {
+      "message": "登录完成又被带回认证页，怎么定位原因？",
+      "expected_intent": "technical_login"
+    },
+    {
+      "message": "页面请求得到 500，应该收集哪些排障信息？",
+      "expected_intent": "technical_crash"
+    },
+    {
+      "message": "服务端返回 500 错误，如何定位故障范围？",
+      "expected_intent": "technical_crash"
+    },
+    {
+      "message": "运行到上传步骤进程突然崩溃，如何诊断？",
+      "expected_intent": "technical_crash"
+    },
+    {
+      "message": "执行文件上传时整个程序停止运行了。",
+      "expected_intent": "technical_crash"
+    },
+    {
+      "message": "请将当前聊天交给人工支持人员。",
+      "expected_intent": "human_handoff"
+    },
+    {
+      "message": "我需要人工接手这段会话。",
+      "expected_intent": "human_handoff"
+    },
+    {
+      "message": "不要继续自动回复，请转人工窗口。",
+      "expected_intent": "human_handoff"
+    },
+    {
+      "message": "请结束机器人处理并连接人工客服。",
+      "expected_intent": "human_handoff"
+    },
+    {
+      "message": "明年欧洲杯哪支球队一定能夺冠？",
+      "expected_intent": "other"
+    },
+    {
+      "message": "请预测下一届世界杯的冠军。",
+      "expected_intent": "other"
+    },
+    {
+      "message": "解释一下黑洞的事件视界是什么。",
+      "expected_intent": "other"
+    },
+    {
+      "message": "能讲讲火山喷发形成的地质过程吗？",
+      "expected_intent": "other"
+    }
+  ],
+  "dialog_cases": []
+}
