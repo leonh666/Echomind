@@ -1,10 +1,11 @@
 <template>
   <section class="account-strip" aria-label="登录状态">
     <template v-if="session">
-      <span>已登录 · {{ session.user?.display_name || session.user_id?.slice(0, 10) }} · {{ session.role }}</span>
+      <div class="account-identity"><span class="account-avatar" aria-hidden="true">{{ (session.user?.display_name || session.user_id || 'U').slice(0, 1).toUpperCase() }}</span><strong>{{ session.user?.display_name || session.user_id?.slice(0, 10) }}</strong><span class="account-role">{{ ({ admin: '管理员', support: '客服', kb_admin: '知识库管理员', customer: '用户' })[session.role] || '用户' }}</span><small v-if="session.organization?.name" class="account-organization">{{ session.organization.name }}</small></div>
       <button class="quiet-button" @click="signOut" :disabled="pending">退出登录</button>
     </template>
     <form v-else class="login-line" @submit.prevent="signIn">
+      <span class="login-intro">登录你的工作空间</span>
       <label><span class="sr-label">邮箱</span><input v-model="email" type="email" autocomplete="username" placeholder="账号邮箱" required /></label>
       <label><span class="sr-label">密码</span><input v-model="password" type="password" autocomplete="current-password" placeholder="登录密码" required /></label>
       <button :disabled="pending">登录</button>

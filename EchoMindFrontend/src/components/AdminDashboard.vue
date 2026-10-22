@@ -19,8 +19,8 @@
         <section class="admin-counts">
           <article v-for="metric in countLabels" :key="metric.id" class="workspace-card"><span>{{ metric.label }}</span><strong>{{ overview.counts[metric.id] }}</strong></article>
         </section>
-        <section class="workspace-card"><h2>任务状态</h2><div class="status-counts"><span v-for="(count, status) in overview.task_status" :key="status">{{ statusLabel(status) }} <strong>{{ count }}</strong></span></div></section>
-        <section class="workspace-card"><h2>工单状态</h2><div class="status-counts"><span v-for="(count, status) in overview.ticket_status" :key="status">{{ statusLabel(status) }} <strong>{{ count }}</strong></span></div></section>
+        <section class="workspace-card"><h2>任务状态</h2><div class="status-counts"><span v-for="(count, status) in overview.task_status" :key="status">{{ statusLabel(status) }} <strong>{{ count }}</strong></span></div><p v-if="!Object.keys(overview.task_status).length" class="muted">还没有任务。保存工单草稿后，可以在这里跟进确认进度。</p></section>
+        <section class="workspace-card"><h2>工单状态</h2><div class="status-counts"><span v-for="(count, status) in overview.ticket_status" :key="status">{{ statusLabel(status) }} <strong>{{ count }}</strong></span></div><p v-if="!Object.keys(overview.ticket_status).length" class="muted">还没有已提交的工单。确认草稿后，处理状态会显示在这里。</p></section>
       </div>
 
       <section v-if="activeTab === 'users'" class="workspace-card">
@@ -135,33 +135,3 @@ watch(() => [props.session, props.session?.user_id, props.session?.user?.id, pro
 watch(activeTab, tab => { if (admin.value && !accessError.value && !loaded[tab] && !loading[tab]) load(tab) })
 onBeforeUnmount(invalidate)
 </script>
-
-<style scoped>
-.admin-tabs { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-.admin-tabs button { background: transparent; color: #a9b5c9; border: 1px solid #2d394e; }
-.admin-tabs button.active { color: #e8f1ff; border-color: #718dff; background: #253251; }
-.admin-overview { display: grid; gap: 1rem; }
-.admin-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
-.admin-counts article { display: grid; gap: .75rem; }
-.admin-counts strong { font-size: 2rem; }
-.admin-counts span, small { color: #93a1b9; }
-.status-counts { display: flex; flex-wrap: wrap; gap: 1.5rem; margin-top: 1rem; }
-.status-counts strong { margin-left: .5rem; color: #e8f1ff; }
-.admin-table-wrap { overflow-x: auto; margin-top: 1rem; }
-table { border-collapse: collapse; width: 100%; text-align: left; }
-th, td { padding: .85rem; border-bottom: 1px solid #293348; overflow-wrap: anywhere; }
-th { color: #9fadc5; font-size: .85rem; font-weight: 500; }
-td { color: #e1e8f4; }
-td small, .admin-record small { display: block; margin-top: .4rem; overflow-wrap: anywhere; }
-.admin-record { padding: 1rem 0; border-bottom: 1px solid #293348; overflow-wrap: anywhere; }
-.admin-record:last-child { border-bottom: 0; }
-.record-heading { display: flex; justify-content: space-between; gap: 1rem; }
-.record-heading span { color: #a5b8f8; flex-shrink: 0; }
-.record-description { white-space: pre-wrap; line-height: 1.7; }
-.admin-details { display: grid; grid-template-columns: max-content 1fr; gap: .4rem 1rem; font-size: .85rem; }
-.admin-details dt { color: #93a1b9; }.admin-details dd { margin: 0; }
-.admin-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; color: #a9b5c9; }
-.admin-pagination label { display: flex; align-items: center; gap: .5rem; }
-.admin-pagination select { width: auto; }
-@media (max-width: 700px) { .admin-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }.admin-pagination { justify-content: flex-start; } }
-</style>

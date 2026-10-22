@@ -54,12 +54,12 @@
     <section v-if="activeView === 'chat'" class="page page-chat">
       <div class="page-heading">
         <div class="heading-copy">
-          <span class="kicker">Conversation lab</span>
-          <h1>和客服 Agent 对话</h1>
-          <p>{{ access.admin ? '发送请求，查看 Agent 路由和处理结果。' : '咨询产品问题，或创建并跟进自己的工单。' }}</p>
+          <span class="kicker">让每一次咨询，都有回应</span>
+          <h1>客服工作台</h1>
+          <p>{{ access.admin ? '结合知识来源处理咨询，复核回答并记录反馈。' : '咨询产品与服务问题，查看参考来源，跟进处理进度。' }}</p>
         </div>
         <div class="heading-actions">
-          <span class="session-label">{{ settings.conversationId || '新会话' }}</span>
+          <span class="session-label">{{ settings.conversationId ? '当前会话' : '新会话' }}</span>
           <button class="quiet-button" @click="clearConversation" :disabled="chatPending">清空</button>
         </div>
       </div>
@@ -69,7 +69,7 @@
           <div class="stage-bar">
             <div class="stage-context">
               <span class="context-dot"></span>
-              <span>{{ currentBackend.baseUrl }}</span>
+              <span>{{ access.admin ? '客服协同空间' : '在线咨询' }}</span>
             </div>
             <span>{{ messages.length }} 条消息</span>
           </div>
@@ -112,22 +112,24 @@
             </article>
 
             <div v-if="messages.length === 0" class="empty-state">
-              <div class="empty-symbol">✦</div>
-              <h2>从一个客户问题开始</h2>
-              <p>下面的快捷问题只是起点，你也可以直接输入自己的测试用例。</p>
+              <div class="welcome-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M7 7h18v13H15l-6 5v-5H7V7Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 12h8M12 16h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
+              <span class="welcome-eyebrow">{{ authSession?.user?.display_name ? '你好，' + authSession.user.display_name : '欢迎使用 EchoMind' }}</span>
+              <h2>今天有什么可以帮你？</h2>
+              <p>从一个问题开始，找到资料，也找到下一步。</p>
               <div class="starter-prompts">
-                <button @click="usePrompt('我想申请退款，订单号是 #12345')">退款申请</button>
-                <button @click="usePrompt('登录时提示错误，应该怎么排查？')">技术排查</button>
-                <button @click="usePrompt('发票多久可以开具？')">发票咨询</button>
+                <button @click="usePrompt('我想了解退款政策和申请流程')"><span class="prompt-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 8h10a5 5 0 0 1 0 10h-4M5 8l4-4M5 8l4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>退款与售后</strong><small>了解政策与办理流程</small></span><span class="prompt-arrow" aria-hidden="true">↗</span></button>
+                <button @click="usePrompt('登录时提示错误，应该怎么排查？')"><span class="prompt-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 14v-3a7 7 0 0 1 14 0v3M5 12H3v6h4v-6H5Zm14 0h2v6h-4v-6h2Zm0 6c0 3-4 3-6 3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>技术支持</strong><small>一起排查遇到的问题</small></span><span class="prompt-arrow" aria-hidden="true">↗</span></button>
+                <button @click="usePrompt('发票多久可以开具？')"><span class="prompt-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 8h6M9 12h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><span><strong>发票与账单</strong><small>查看开票与费用说明</small></span><span class="prompt-arrow" aria-hidden="true">↗</span></button>
               </div>
             </div>
           </div>
 
           <form class="composer" @submit.prevent="sendMessage">
+            <div class="composer-heading"><span>描述你遇到的问题</span><span>支持多轮对话</span></div>
             <textarea
               v-model="draft"
               rows="3"
-              placeholder="输入消息..."
+              placeholder="例如：退款审核需要多久？我应该准备哪些信息？"
               @keydown.meta.enter.prevent="sendMessage"
               @keydown.ctrl.enter.prevent="sendMessage"
             ></textarea>
@@ -139,9 +141,9 @@
           </form>
         </section>
 
-        <aside class="chat-sidebar" ref="sidebarRef">
+        <aside class="chat-sidebar">
           <div class="chat-sidebar-scroll">
-            <section class="side-card session-card">
+            <section v-if="access.admin" class="side-card session-card">
               <div class="card-heading">
                 <div>
                   <span class="kicker">Session</span>
@@ -159,6 +161,11 @@
                   <strong>{{ settings.userId || 'anonymous' }}</strong>
                 </div>
               </div>
+            </section>
+
+            <section v-else class="side-card guidance-card">
+              <div class="card-heading"><div><span class="kicker">咨询小贴士</span><h2>让问题更快解决</h2></div></div>
+              <ol><li><span>01</span><div><strong>说清遇到的情况</strong><p>描述发生了什么，以及你希望获得的帮助。</p></div></li><li><span>02</span><div><strong>补充必要的上下文</strong><p>提供商品型号、错误提示或已经尝试的步骤。</p></div></li><li><span>03</span><div><strong>核对回复与参考来源</strong><p>仍有疑问可以继续追问，并记录处理结果。</p></div></li></ol>
             </section>
 
             <section v-if="access.admin" class="side-card connection-card">
@@ -418,7 +425,6 @@ const searchVersion = ref(''), searchKnowledgeBase = ref('')
 const docTitle = ref('退款补充政策')
 const docContent = ref('大促期间退款审核时间可能延长到 3-5 个工作日。')
 const messageList = ref(null)
-const sidebarRef = ref(null)
 const monitorData = ref({ agent_stats: {}, tool_stats: {}, active_alerts: [], suggestions: [] })
 const skillsData = ref({ count: 0, skills: [], errors: [] })
 const lastResponse = ref(null)
@@ -427,7 +433,6 @@ const evalData = ref(null)
 const toast = ref('')
 let toastTimer
 let messageSequence = 0
-let sidebarObserver
 
 const currentBackend = computed(() => backendMeta(settings.backend, settings))
 const docsUrl = computed(() => `${currentBackend.value.baseUrl}/docs`)
@@ -440,19 +445,11 @@ watch(() => settings.conversationId, persist)
 watch(activeView, value => { if (value === 'evaluation' && authSession.value?.role === 'admin') loadReports() })
 onMounted(() => {
   refreshConsole()
-  updateSidebarHeight()
-  if (typeof ResizeObserver !== 'undefined') {
-    sidebarObserver = new ResizeObserver(updateSidebarHeight)
-    if (sidebarRef.value) sidebarObserver.observe(sidebarRef.value)
-  }
-  window.addEventListener('resize', updateSidebarHeight)
 })
 
 onBeforeUnmount(() => {
   chatController?.abort()
   clearInterval(chatTimer)
-  sidebarObserver?.disconnect?.()
-  window.removeEventListener('resize', updateSidebarHeight)
 })
 
 function persist() { saveSettings(settings) }
@@ -510,14 +507,6 @@ async function promoteReport(report) {
   busy.value = true
   try { await promoteEvaluation(settings, report.run_id); if (generation === sessionGeneration) showToast('已设置回归基线，后续评测会检查版本是否可比') }
   catch (error) { handleFailure(error, generation) } finally { if (generation === sessionGeneration) busy.value = false }
-}
-
-function updateSidebarHeight() {
-  const sidebar = sidebarRef.value
-  if (!sidebar) return
-  const rect = sidebar.getBoundingClientRect()
-  const height = Math.max(320, Math.floor(rect.height))
-  sidebar.style.setProperty('--sidebar-height', `${height}px`)
 }
 
 function switchBackend(type) {
