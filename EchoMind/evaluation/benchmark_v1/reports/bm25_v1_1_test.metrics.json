@@ -1,0 +1,331 @@
+{
+  "schema_version": "echomind-benchmark-metrics-v1",
+  "dataset": {
+    "total_cases": 72,
+    "prediction_rows": 72,
+    "prediction_coverage": 1.0,
+    "statuses": {
+      "ok": 72,
+      "error": 0,
+      "skipped": 0,
+      "missing": 0
+    },
+    "kind_counts": {
+      "contract": 0,
+      "intent": 0,
+      "rag": 72
+    },
+    "split_counts": {
+      "test": 72
+    }
+  },
+  "intent": {
+    "eligible_cases": 0,
+    "observed_cases": 0,
+    "correct_cases": 0,
+    "coverage": null,
+    "strict_accuracy": null,
+    "observed_accuracy": null,
+    "strict_macro_f1": null,
+    "observed_macro_f1": null,
+    "per_class": {},
+    "macro_f1_note": "Strict macro averages gold-supported classes; missing/error/skipped predictions are false negatives. Observed macro averages classes with observed gold support."
+  },
+  "routing": {
+    "eligible_cases": 0,
+    "observed_cases": 0,
+    "correct_cases": 0,
+    "coverage": null,
+    "strict_exact_set_accuracy": null,
+    "observed_exact_set_accuracy": null
+  },
+  "retrieval": {
+    "eligible_cases": 56,
+    "observed_cases": 56,
+    "excluded_non_answerable_cases": 16,
+    "coverage": 1.0,
+    "at_k": {
+      "1": {
+        "hit": {
+          "strict": 0.8571428571428571,
+          "observed": 0.8571428571428571
+        },
+        "recall": {
+          "strict": 0.7321428571428571,
+          "observed": 0.7321428571428571
+        },
+        "mrr": {
+          "strict": 0.8571428571428571,
+          "observed": 0.8571428571428571
+        },
+        "ndcg": {
+          "strict": 0.8571428571428571,
+          "observed": 0.8571428571428571
+        }
+      },
+      "3": {
+        "hit": {
+          "strict": 1.0,
+          "observed": 1.0
+        },
+        "recall": {
+          "strict": 0.9910714285714286,
+          "observed": 0.9910714285714286
+        },
+        "mrr": {
+          "strict": 0.925595238095238,
+          "observed": 0.925595238095238
+        },
+        "ndcg": {
+          "strict": 0.9388280278036693,
+          "observed": 0.9388280278036693
+        }
+      },
+      "5": {
+        "hit": {
+          "strict": 1.0,
+          "observed": 1.0
+        },
+        "recall": {
+          "strict": 1.0,
+          "observed": 1.0
+        },
+        "mrr": {
+          "strict": 0.925595238095238,
+          "observed": 0.925595238095238
+        },
+        "ndcg": {
+          "strict": 0.9435435299924654,
+          "observed": 0.9435435299924654
+        }
+      }
+    },
+    "ranking_note": "K counts original chunk positions, including duplicate document IDs. Each relevant document earns gain once. Binary IDCG uses min(relevant document count, K)."
+  },
+  "behavior": {
+    "eligible_cases": 72,
+    "observed_cases": 0,
+    "correct_cases": 0,
+    "coverage": 0.0,
+    "strict_accuracy": 0.0,
+    "observed_accuracy": null,
+    "strict_macro_f1": 0.0,
+    "observed_macro_f1": null,
+    "per_class": {
+      "answer": {
+        "support": 56,
+        "observed_support": 0,
+        "true_positive": 0,
+        "false_positive": 0,
+        "false_negative": 56,
+        "precision": null,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "clarify": {
+        "support": 8,
+        "observed_support": 0,
+        "true_positive": 0,
+        "false_positive": 0,
+        "false_negative": 8,
+        "precision": null,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "refuse": {
+        "support": 8,
+        "observed_support": 0,
+        "true_positive": 0,
+        "false_positive": 0,
+        "false_negative": 8,
+        "precision": null,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "macro_f1_note": "Strict macro averages gold-supported classes; missing/error/skipped predictions are false negatives. Observed macro averages classes with observed gold support.",
+    "by_expected_behavior": {
+      "answer": {
+        "eligible_cases": 56,
+        "observed_cases": 0,
+        "correct_cases": 0,
+        "strict_accuracy": 0.0,
+        "observed_accuracy": null,
+        "coverage": 0.0,
+        "predicted_behavior_counts": {
+          "answer": 0,
+          "clarify": 0,
+          "refuse": 0
+        }
+      },
+      "clarify": {
+        "eligible_cases": 8,
+        "observed_cases": 0,
+        "correct_cases": 0,
+        "strict_accuracy": 0.0,
+        "observed_accuracy": null,
+        "coverage": 0.0,
+        "predicted_behavior_counts": {
+          "answer": 0,
+          "clarify": 0,
+          "refuse": 0
+        }
+      },
+      "refuse": {
+        "eligible_cases": 8,
+        "observed_cases": 0,
+        "correct_cases": 0,
+        "strict_accuracy": 0.0,
+        "observed_accuracy": null,
+        "coverage": 0.0,
+        "predicted_behavior_counts": {
+          "answer": 0,
+          "clarify": 0,
+          "refuse": 0
+        }
+      }
+    },
+    "no_answer": {
+      "eligible_cases": 16,
+      "observed_cases": 0,
+      "exact_correct_cases": 0,
+      "strict_exact_accuracy": 0.0,
+      "observed_exact_accuracy": null,
+      "coverage": 0.0,
+      "note": "A refusal does not satisfy an expected clarification, or vice versa."
+    },
+    "answerable_errors": {
+      "eligible_cases": 56,
+      "observed_cases": 0,
+      "false_refusal_cases": 0,
+      "false_clarification_cases": 0,
+      "observed_false_refusal_rate": null,
+      "observed_false_clarification_rate": null,
+      "false_refusal_fraction_all_cases": 0.0,
+      "note": "Observed error rates require the accompanying coverage; missing behavior is unmeasured, not a correct answer."
+    },
+    "acceptable_response": {
+      "eligible_cases": 72,
+      "assessed_cases": 0,
+      "accepted_cases": 0,
+      "strict_accuracy": 0.0,
+      "observed_accuracy": null,
+      "assessment_coverage": 0.0,
+      "unassessed_alternative_cases": 0,
+      "note": "Exact behavior classification remains diagnostic. Alternative answers need all explicit checks; this is not overall factual or task success."
+    }
+  },
+  "facts": {
+    "eligible_cases": 56,
+    "cases_with_assessments": 0,
+    "required_facts": 82,
+    "assessed_facts": 0,
+    "passed_facts": 0,
+    "failed_facts": 0,
+    "unassessed_facts": 82,
+    "assessment_coverage": 0.0,
+    "strict_required_fact_coverage": 0.0,
+    "observed_fact_pass_rate": null,
+    "note": "Uses explicit boolean fact_checks only; lexical overlap is not evidence of semantic correctness."
+  },
+  "citations": {
+    "eligible_cases": 56,
+    "observed_cases": 0,
+    "sample_coverage": 0.0,
+    "required": 0,
+    "cited": 0,
+    "assessed": 0,
+    "supported": 0,
+    "observed_citation_coverage": null,
+    "observed_citation_support": null,
+    "citation_assessment_coverage": null,
+    "note": "Micro ratios describe reported checks only. Missing checks have unknown denominators and must be read alongside sample_coverage; zero denominators yield null."
+  },
+  "faithfulness": {
+    "eligible_cases": 72,
+    "observed_samples": 0,
+    "assessed_cases": 0,
+    "unobserved_samples": 72,
+    "observed_samples_without_claims": 0,
+    "claims_assessed": 0,
+    "claims_supported": 0,
+    "claims_unsupported": 0,
+    "observed_support_rate": null,
+    "sample_coverage": 0.0,
+    "assessed_case_coverage": 0.0,
+    "note": "External human/LLM checks must assess all verifiable claims in the actual response against the actual retrieved context. This is separate from required-fact coverage. Missing fields remain unmeasured; zero claims yield null support rate. All RAG behaviors are eligible, and status error/skipped receives no credit."
+  },
+  "contracts": {
+    "execution_tier": null,
+    "eligible_cases": 0,
+    "cases_with_assertion_field": 0,
+    "fully_assessed_cases": 0,
+    "partially_assessed_cases": 0,
+    "unassessed_cases": 0,
+    "passed_cases": 0,
+    "strict_pass_rate": null,
+    "observed_complete_pass_rate": null,
+    "complete_assessment_coverage": null,
+    "required_assertions": 0,
+    "assessed_assertions": 0,
+    "passed_assertions": 0,
+    "failed_assertions": 0,
+    "unassessed_assertions": 0,
+    "assertion_assessment_coverage": null
+  },
+  "operations": {
+    "attempted_cases": 72,
+    "error_cases": 0,
+    "attempted_error_rate": 0.0,
+    "error_fraction_all_cases": 0.0,
+    "strict_non_success_rate": 0.0,
+    "latency_ms": {
+      "sample_count": 72,
+      "attempted_coverage": 1.0,
+      "p50": 0.1364,
+      "p95": 0.2185,
+      "method": "nearest-rank; observed ok/error executions only"
+    },
+    "cost_usd": {
+      "sample_count": 0,
+      "attempted_coverage": 0.0,
+      "known_total": null,
+      "known_mean": null,
+      "unknown_attempted_cases": 72,
+      "note": "Known subtotal only; missing costs are unknown, not zero. Skipped predictions are not executions and are excluded."
+    }
+  },
+  "judge_methods": {},
+  "interpretation": "Strict scores include every eligible case; observed scores require coverage. Contract specifications are reported separately. No weighted overall score.",
+  "run_metadata": {
+    "run_id": "008103772271",
+    "started_at": "2026-10-22T03:15:29.780463+00:00",
+    "split": "test",
+    "dataset_version": "echomind-benchmark-v1.1",
+    "selected_track": "all",
+    "method": "stdlib_bm25_k1=1.5_b=0.75",
+    "ranking_unit": "chunk",
+    "relevance_unit": "source_document",
+    "chunking_protocol": "legacy_sentence_char_target_500",
+    "index_chunk_count": 36,
+    "documents_are_ranking_units": false,
+    "corpus_sha256": "b346fde270cffeb66f564b95d25df8a69cff11f88cd5724c061f2790f0de2d67",
+    "case_sha256": {
+      "intent_cases.jsonl": "58dc63de1e69ecea738455b7a78eaba4a8df38f23590c72d25f510400c919100",
+      "rag_cases.jsonl": "0265ca3628105aa0fa1b33493a9a1cdc88676d124a523bb975311dea39755f5b"
+    },
+    "runner_sha256": "3ea3d8cffc8754cb4734f1bc00c0154827e8751e7b6e2614183d215fbcb05ce1",
+    "metrics_sha256": "b0034ec3edca98247574a0af830b08b04881d797a80d61ab2953777dbbb2c351",
+    "manifest_sha256": "adfa1ccab84878d43e4c20f7c5663fe5830d021d5666ea947713b132f4178a13",
+    "api_target": null,
+    "api_calls_may_cost_money": false,
+    "top_k_requested": 5,
+    "limitations": [
+      "Synthetic unreviewed fixture results are not production performance.",
+      "No automatic semantic, citation, contract or cost judgments.",
+      "API imports no corpus automatically; isolate and load corpus-only payload separately.",
+      "API search may report reranked=true even when skipped/failed in current implementation.",
+      "Legacy API uses one synthetic user per case; authenticated APIs need equivalent identity/memory isolation."
+    ]
+  }
+}

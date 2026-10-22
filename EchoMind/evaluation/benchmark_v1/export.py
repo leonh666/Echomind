@@ -8,6 +8,11 @@ def main():
     # Never put questions, reference facts, qrels or labels in the search index.
     write_json(output / "knowledge_add.json",
                {"documents": [{"title": d["title"], "content": d["content"]} for d in docs]})
+    # Version and stable IDs are source metadata, not question/answer labels.
+    write_json(output / "knowledge_add_versioned.json", {"documents": [
+        {"document_id": d["id"], "title": d["title"], "content": d["content"],
+         "product_version": d["version"], "knowledge_base_id": "supportlab-fixture-v1-1"}
+        for d in docs]})
     write_json(output / "title_to_document_id.json", {d["title"]: d["id"] for d in docs})
     for split in ("dev", "test"):
         single_turn = [c for c in cases if c["kind"] == "intent" and c["split"] == split and not c["history"]]

@@ -6,6 +6,8 @@ import json
 import re
 
 from common import CASE_FILES, DATA, ROOT, load_cases, read_jsonl, sha256, write_json
+from scenario_review import DATASET_VERSION, REVIEW_ID, REFERENCE_PRODUCT
+from review_evidence import check_review_evidence
 
 
 def normalized(text):
@@ -54,6 +56,7 @@ def validate():
         check(doc.get("origin") == "synthetic_original", f"{identifier}: origin")
         check(doc.get("source_kind") == "fictional_policy_fixture", f"{identifier}: source_kind")
         check(doc.get("access_scope") == "public_fixture", f"{identifier}: access_scope")
+        check(doc.get("reference_product") == REFERENCE_PRODUCT, f"{identifier}: fictional product scope missing")
         check(doc.get("title") and doc.get("content") and doc.get("version"), f"{identifier}: missing content")
         key = normalized(doc.get("content", ""))
         check(key not in content_keys, f"{identifier}: duplicate normalized document")
@@ -71,6 +74,7 @@ def validate():
         group(case)
         check(case.get("origin") == "synthetic_original", f"{identifier}: origin")
         check(case.get("human_review") == "pending", f"{identifier}: review status needs evidence")
+        check(case.get("scenario_review_version") == REVIEW_ID, f"{identifier}: scenario correction version missing")
         check(isinstance(case.get("query"), str) and bool(case["query"].strip()), f"{identifier}: query")
         history = case.get("history", [])
         check(isinstance(history, list), f"{identifier}: history")
@@ -110,8 +114,25 @@ def validate():
                 check(set(fact["evidence_document_ids"]).issubset(set(relevant)),
                       f"{identifier}: fact evidence absent from qrels")
             check(len(fact_ids) == len(set(fact_ids)), f"{identifier}: repeated fact in question")
+            if case.get("category") == "clarification":
+                check(case.get("acceptable_behaviors") == ["clarify", "answer"], f"{identifier}: clarification alternatives missing")
+                alternate = case.get("conditional_reference_facts", [])
+                check(len(alternate) == 2 and len({fact.get('id') for fact in alternate}) == 2,
+                      f"{identifier}: both distinct version references required")
+                conditional_versions = set()
+                for fact in alternate:
+                    source_id, text = all_facts.get(fact.get("id"), (None, None))
+                    check(text == fact.get("text") and source_id in fact.get("evidence_document_ids", []),
+                          f"{identifier}: conditional reference mismatch")
+                    if source_id in document_by_id:
+                        check(document_by_id[source_id]["group_id"] == case["group_id"], f"{identifier}: conditional evidence group")
+                        conditional_versions.add(document_by_id[source_id]["version"])
+                check(conditional_versions == {"test-v1.0", "test-v2.0"}, f"{identifier}: both rule versions required")
         elif case["kind"] == "contract":
-            check(case.get("execution_tier") == "future_contract", f"{identifier}: contract must not imply implementation")
+            check(case.get("execution_tier") == "unexecuted_contract" and case.get("execution_status") == "not_run",
+                  f"{identifier}: contract must not imply execution")
+            check(case.get("target_system") == "echomind_native_python" and bool(case.get("outcome_oracle")),
+                  f"{identifier}: native target and outcome oracle required")
             assertions = case.get("expected_assertions", [])
             check(bool(assertions) and len(assertions) == len(set(assertions)),
                   f"{identifier}: expected assertions")
@@ -120,9 +141,10 @@ def validate():
 
     check(not exact_overlaps, "intent questions exactly overlap prompt templates")
     manifest = {
-        "dataset_version": "echomind-benchmark-v1.0",
-        "schema_version": "1.0",
+        "dataset_version": DATASET_VERSION,
+        "schema_version": "1.1",
         "created_date": "2026-10-21",
+        "revised_date": "2026-10-22",
         "origin": "synthetic_original",
         "human_verified_cases": 0,
         "review_status": "all_pending_independent_human_review",
@@ -137,6 +159,7 @@ def validate():
         "rag_categories": dict(sorted(Counter(c["category"] for c in cases if c["kind"] == "rag").items())),
         "contract_suites": dict(sorted(Counter(c["suite"] for c in cases if c["kind"] == "contract").items())),
         "source_family_groups": len(group_splits),
+        "evaluation_tracks": dict(sorted(Counter(c["evaluation_track"] for c in cases).items())),
         "prompt_template_exact_overlaps": exact_overlaps,
         "files": {name: {"sha256": sha256(DATA / name)}
                   for name in ("corpus.jsonl",) + CASE_FILES},
@@ -144,10 +167,20 @@ def validate():
             "Synthetic fixtures; not production traffic or independently human-verified gold.",
             "Frozen grouped test fixtures are visible in this repository, not a blind benchmark.",
             "Corpus is intentionally indexed across dev/test; test questions, labels and facts are never index inputs.",
-            "Contracts describe future acceptance requirements; no implementation pass is implied.",
+            "Native Python contracts remain unexecuted acceptance specifications; no passing result is implied.",
+            "SupportLab knowledge rules describe a fictional supported product, not deployed EchoMind features.",
             "No external benchmark rows or user data are bundled.",
         ],
     }
+    evidence_path = ROOT / "reviews" / "scenario_review_v1_1.jsonl"
+    if evidence_path.exists():
+        reviews = read_jsonl(evidence_path)
+        errors.extend(check_review_evidence(docs + cases, reviews))
+        manifest["ai_scenario_review"] = {
+            "id": REVIEW_ID, "reviewed_documents": len(docs), "reviewed_cases": len(cases),
+            "human_approved": False, "evidence_file": "reviews/scenario_review_v1_1.jsonl",
+            "sha256": sha256(evidence_path),
+        }
     return {"valid": not errors, "errors": errors, "manifest": manifest}
 
 

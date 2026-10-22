@@ -152,6 +152,8 @@ class BusinessStore:
             if version not in (0, 1):
                 raise BusinessError("unsupported_schema", "Unsupported business database schema", 500)
             conn.executescript(SCHEMA)
+            from business.insights import SCHEMA as INSIGHT_SCHEMA
+            conn.executescript(INSIGHT_SCHEMA)
         finally:
             conn.close()
 

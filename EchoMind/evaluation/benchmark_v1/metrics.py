@@ -83,6 +83,16 @@ def _validate_cases(cases: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
         elif kind == "rag":
             if not isinstance(case.get("expected_behavior"), str) or case["expected_behavior"] not in BEHAVIORS:
                 raise ValueError(f"{case_id}: invalid expected_behavior")
+            if "acceptable_behaviors" in case:
+                allowed = _strings(case["acceptable_behaviors"], f"{case_id}.acceptable_behaviors", unique=True)
+                if not set(allowed).issubset(BEHAVIORS) or case["expected_behavior"] not in allowed:
+                    raise ValueError(f"{case_id}: invalid acceptable_behaviors")
+                requirements = case.get("alternative_behavior_requirements", {})
+                if not isinstance(requirements, dict) or set(requirements) != set(allowed) - {case["expected_behavior"]}:
+                    raise ValueError(f"{case_id}: every alternative needs explicit grading requirements")
+                for alternate, checks in requirements.items():
+                    if not _strings(checks, f"{case_id}.{alternate}.requirements", unique=True):
+                        raise ValueError(f"{case_id}: alternative requirements cannot be empty")
             relevant = _strings(case.get("relevant_document_ids"),
                                 f"{case_id}.relevant_document_ids", unique=True)
             if case["expected_behavior"] == "answer" and not relevant:
@@ -108,8 +118,8 @@ def _validate_cases(cases: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
                                   f"{case_id}.expected_assertions", unique=True)
             if not assertions:
                 raise ValueError(f"{case_id}: contract needs at least one assertion")
-            if case.get("execution_tier") != "future_contract":
-                raise ValueError(f"{case_id}: contract execution_tier must be future_contract")
+            if case.get("execution_tier") not in {"future_contract", "unexecuted_contract"}:
+                raise ValueError(f"{case_id}: contract execution_tier must be future_contract or unexecuted_contract")
         indexed[case_id] = case
     return indexed
 
@@ -132,11 +142,11 @@ def _validate_predictions(predictions: list[dict[str, Any]],
         kind = cases[case_id]["kind"]
         permitted = {
             "intent": {"intent", "agents"},
-            "rag": {"retrieved_document_ids", "behavior", "fact_checks", "citation_checks", "faithfulness_checks"},
+            "rag": {"retrieved_document_ids", "behavior", "behavior_checks", "fact_checks", "citation_checks", "faithfulness_checks"},
             "contract": {"assertions"},
         }[kind]
         metric_fields = {"intent", "agents", "retrieved_document_ids", "behavior",
-                         "fact_checks", "citation_checks", "faithfulness_checks", "assertions"}
+                         "behavior_checks", "fact_checks", "citation_checks", "faithfulness_checks", "assertions"}
         wrong_fields = (set(pred) & metric_fields) - permitted
         if wrong_fields:
             raise ValueError(f"{case_id}: metric fields incompatible with {kind}: {sorted(wrong_fields)}")
@@ -159,6 +169,11 @@ def _validate_predictions(predictions: list[dict[str, Any]],
             expected = {fact["id"] for fact in cases[case_id]["required_facts"]}
             if not set(checked).issubset(expected):
                 raise ValueError(f"{case_id}: unknown fact id in fact_checks")
+        if "behavior_checks" in pred:
+            checked = _checks(pred["behavior_checks"], f"{case_id}.behavior_checks")
+            expected = {key for checks in cases[case_id].get("alternative_behavior_requirements", {}).values() for key in checks}
+            if not set(checked).issubset(expected):
+                raise ValueError(f"{case_id}: unknown behavior requirement")
         if "assertions" in pred:
             checked = _checks(pred["assertions"], f"{case_id}.assertions")
             expected = set(cases[case_id]["expected_assertions"])
@@ -340,6 +355,35 @@ def evaluate(cases: list[dict[str, Any]], predictions: list[dict[str, Any]],
         "false_refusal_fraction_all_cases": _ratio(false_refusals, len(answerable)),
         "note": "Observed error rates require the accompanying coverage; missing behavior is unmeasured, not a correct answer.",
     }
+    if any("acceptable_behaviors" in case for case in rag_cases):
+        judged = accepted = unassessed_alternatives = 0
+        for case in rag_cases:
+            pred = successful(case)
+            observed = pred.get("behavior")
+            if observed is None:
+                continue
+            if observed == case["expected_behavior"]:
+                judged += 1; accepted += 1
+            elif observed not in case.get("acceptable_behaviors", [case["expected_behavior"]]):
+                judged += 1
+            else:
+                checks = pred.get("behavior_checks", {})
+                required = case["alternative_behavior_requirements"][observed]
+                values = [checks.get(key) for key in required]
+                # Missing checks are unassessed, never automatic alternative credit.
+                if False in values:
+                    judged += 1
+                elif any(value is None for value in values):
+                    unassessed_alternatives += 1
+                else:
+                    judged += 1; accepted += 1
+        behavior["acceptable_response"] = {
+            "eligible_cases": len(rag_cases), "assessed_cases": judged, "accepted_cases": accepted,
+            "strict_accuracy": _ratio(accepted, len(rag_cases)), "observed_accuracy": _ratio(accepted, judged),
+            "assessment_coverage": _ratio(judged, len(rag_cases)),
+            "unassessed_alternative_cases": unassessed_alternatives,
+            "note": "Exact behavior classification remains diagnostic. Alternative answers need all explicit checks; this is not overall factual or task success.",
+        }
 
     required_facts = assessed_facts = passed_facts = failed_facts = 0
     facts_case_count = assessed_fact_cases = 0
@@ -419,7 +463,8 @@ def evaluate(cases: list[dict[str, Any]], predictions: list[dict[str, Any]],
         complete_contracts += int(n_assessed == len(expected))
         partial_contracts += int(0 < n_assessed < len(expected))
         contract_passed += int(all(value is True for value in values))
-    contracts = {"execution_tier": "future_contract", "eligible_cases": len(contract_cases),
+    tiers = sorted({case["execution_tier"] for case in contract_cases})
+    contracts = {"execution_tier": tiers[0] if len(tiers) == 1 else ("mixed" if tiers else None), "eligible_cases": len(contract_cases),
                  "cases_with_assertion_field": assertion_field_cases,
                  "fully_assessed_cases": complete_contracts, "partially_assessed_cases": partial_contracts,
                  "unassessed_cases": len(contract_cases) - complete_contracts - partial_contracts,
@@ -460,7 +505,7 @@ def evaluate(cases: list[dict[str, Any]], predictions: list[dict[str, Any]],
         "facts": facts, "citations": citations, "faithfulness": faithfulness,
         "contracts": contracts, "operations": operations,
         "judge_methods": dict(sorted(Counter(pred["judge_method"] for pred in predictions if "judge_method" in pred).items())),
-        "interpretation": "Strict scores include every eligible case; observed scores require coverage. Future contracts are reported separately. No weighted overall score.",
+        "interpretation": "Strict scores include every eligible case; observed scores require coverage. Contract specifications are reported separately. No weighted overall score.",
     }
 
 

@@ -1,5 +1,7 @@
 # 评测包验证记录
 
+本页保留 **v1.0 历史快照**。2026-10-22 已发布 v1.1 场景修正，见 [SCENARIO_REVIEW.md](SCENARIO_REVIEW.md)；下方旧分数和 44 项测试不是当前版本成绩，当前 validation.json 指向新版本校验结果。
+
 验证日期：2026-10-21。环境：Windows / Python 3.12.7。数据版本：echomind-benchmark-v1.0。
 
 本记录验证的是合成数据包和离线工具；没有调用当前 EchoMind 服务、模型 API 或未来工单业务后端。

@@ -65,19 +65,19 @@
       "expected_intent": "greeting"
     },
     {
-      "message": "现有支持层级无法处理，请升级到主管级别。",
+      "message": "一线支持说处理不了，能转给二线支持继续排查吗？",
       "expected_intent": "escalation"
     },
     {
-      "message": "这件事需要提交到更高级别的支持流程。",
+      "message": "请把问题升级到更高一级的支持团队。",
       "expected_intent": "escalation"
     },
     {
-      "message": "请对本事件启动升级审查程序。",
+      "message": "工单超过约定时间还没有进展，请升级处理，不要继续按普通工单排队。",
       "expected_intent": "escalation"
     },
     {
-      "message": "我申请按升级机制重新审查本问题。",
+      "message": "普通处理流程一直没有结果，我申请升级这张工单。",
       "expected_intent": "escalation"
     },
     {
@@ -149,7 +149,7 @@
       "expected_intent": "order_status"
     },
     {
-      "message": "这笔订单当前是在备货还是等待确认？",
+      "message": "这笔订阅订单是在开通服务，还是还等我确认？",
       "expected_intent": "order_status"
     },
     {
@@ -185,11 +185,11 @@
       "expected_intent": "refund"
     },
     {
-      "message": "退回商品被仓库验收后怎样继续申请退款？",
+      "message": "未使用充值包的退款申请已经提交，接下来还要走什么流程？",
       "expected_intent": "refund"
     },
     {
-      "message": "退件已经入库，接下来要走哪一步退款流程？",
+      "message": "我已经申请退还没用过的充值包，后面是不是还要审核？",
       "expected_intent": "refund"
     },
     {

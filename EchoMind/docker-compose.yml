@@ -8,7 +8,7 @@ services:
     image: redis:7-alpine
     container_name: echomind-redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-echomind123}
     volumes:
       - redis-data:/data
@@ -26,7 +26,7 @@ services:
     image: chromadb/chroma:0.5.23
     container_name: echomind-chromadb
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     environment:
       - IS_PERSISTENT=TRUE
       - PERSIST_DIRECTORY=/chroma/chroma
@@ -48,7 +48,7 @@ services:
     image: prom/prometheus:latest
     container_name: echomind-prometheus
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -57,6 +57,8 @@ services:
     volumes:
       - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
+    secrets:
+      - metrics_token
     restart: unless-stopped
     networks:
       - echomind-network
@@ -88,7 +90,10 @@ services:
       - ECHOMIND_SKILLS_DIR=/app/skills
       - ECHOMIND_BUSINESS_DB_PATH=/app/data/business/echomind.sqlite3
       - ECHOMIND_AUTH_REQUIRED=${ECHOMIND_AUTH_REQUIRED:-true}
+      - ECHOMIND_METRICS_TOKEN_FILE=/run/secrets/metrics_token
       - ECHOMIND_ALLOW_LOCAL_CHROMA_FALLBACK=false
+    secrets:
+      - metrics_token
     volumes:
       - ./data/chroma:/app/data/chroma
       - ./data/eval:/app/data/eval
@@ -139,6 +144,10 @@ networks:
     ipam:
       config:
         - subnet: 172.28.0.0/16
+
+secrets:
+  metrics_token:
+    file: ./.secrets/metrics_token
 
 # ── 数据卷 ──────────────────────────────────────────────────────────────────
 volumes:

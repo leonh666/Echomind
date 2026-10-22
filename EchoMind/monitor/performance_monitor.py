@@ -149,7 +149,9 @@ class PerformanceMonitor:
             "tool_success_rate":  Gauge("tool_success_rate", "工具成功率", ["tool"]),
             "requests_total":     Counter("requests_total", "总请求数"),
         }
-        start_http_server(port)
+        # Optional legacy exporter is local-only. Remote scraping uses the
+        # authenticated FastAPI /metrics endpoint.
+        start_http_server(port, addr="127.0.0.1")
         logger.info(f"Prometheus 已启动: :{port}")
 
     # ── 生命周期 ──────────────────────────────────────────────────────────────

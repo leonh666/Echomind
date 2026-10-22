@@ -13,6 +13,7 @@ import uuid
 import weakref
 import json
 import hashlib
+import time
 from dataclasses import asdict
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
@@ -33,6 +34,7 @@ from pydantic import BaseModel, Field
 from core.chat_events import emit
 from core.chat_stream import chat_event_stream
 from core.llm_limits import HISTORY_MESSAGES
+from core.evidence import public_sources
 from api import operations
 
 load_dotenv()
@@ -275,6 +277,8 @@ class ChatResponse(BaseModel):
     sources: List[Dict[str, Any]] = Field(default_factory=list)
     tasks: List[Dict[str, Any]] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
+    duration_ms: float = 0.0
+    feedback_available: bool = False
 
 
 class ToolTraceResponse(BaseModel):
@@ -293,7 +297,7 @@ async def health():
     if _orchestrator is None:
         raise HTTPException(503, "服务未就绪")
     rt = operations._runtime
-    return {"status": "ok", "agents": _orchestrator.get_stats(),
+    return {"status": "ok",
             "auth_required": bool(rt and rt.auth_required), "workflow": "native_python"}
 
 
@@ -390,6 +394,7 @@ async def _run_chat_inner(req: ChatRequest, actor=None):
     """
     if _orchestrator is None or _memory is None:
         raise HTTPException(503, "服务未就绪")
+    started_at = time.perf_counter()
 
     from agents.agent_orchestrator import Request as OrcReq
     from memory.conversation_memory import MsgRole
@@ -465,7 +470,7 @@ async def _run_chat_inner(req: ChatRequest, actor=None):
     _background_tasks.add(background)
     background.add_done_callback(_background_tasks.discard)
 
-    return ChatResponse(
+    response = ChatResponse(
         conv_id=conv_id,
         request_id=result.request_id,
         response=result.response,
@@ -484,10 +489,16 @@ async def _run_chat_inner(req: ChatRequest, actor=None):
         entities=intent_result.entities,
         intent_confidence=round(intent_result.confidence, 4),
         intent_source_scores=intent_result.source_scores,
-        sources=orch_req.evidence,
+        sources=public_sources(orch_req.evidence),
         tasks=orch_req.business_tasks,
         warnings=orch_req.warnings,
+        duration_ms=round((time.perf_counter() - started_at) * 1000, 1),
     )
+    if actor:
+        await asyncio.to_thread(operations.insight_service().record_answer, actor,
+                                result.request_id, req.message, response.model_dump())
+        response.feedback_available = True
+    return response
 
 
 @app.get("/monitor")

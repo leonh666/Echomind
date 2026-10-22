@@ -38,6 +38,10 @@ escalation 与 human_handoff、query 与具体领域之间的边界在现有项�
 
 120 条均只要求一个主要 Agent。按现有业务类别标为 general、technical、billing 或 escalation，exact-set 指标检查该单元素集合。
 
+v1.1 复核保留账号及账号安全题的 general 业务预期，并记录 13 条 known_implementation_gap：当前实现偏向路由到 billing，与通用账号指导职责不匹配。不要为迎合实现修改 gold。涉及实际敏感变更仍需身份核验或人工处理。intent-097 的“立刻闪退”描述故障发生时序，不是 critical 的充分证据；新增 urgency 标注仅供诊断，当前尚不自动统计该指标。
+
+7 条物流题保留为 legacy_taxonomy_compatibility，其余 113 条为 support_intent_classification。可用 runner 的 --track 分开运行；默认 all 不代表真实流量分布。升级意图表达已改为更自然的主管/二线/工单升级请求，避免把单纯要求真人与升级层级混为一谈。
+
 此版本没有足够的复合意图与多个辅助 Agent gold，不能用单 Agent 路由通过率声称已经验证多 Agent 协作。
 
 ## 4. 尚需扩展

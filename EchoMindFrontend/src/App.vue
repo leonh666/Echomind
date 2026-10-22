@@ -8,9 +8,13 @@
 
       <nav class="view-nav" aria-label="工作区">
         <button :class="{ active: activeView === 'chat' }" @click="activeView = 'chat'">对话</button>
-        <button :class="{ active: activeView === 'knowledge' }" @click="activeView = 'knowledge'">知识库</button>
-        <button v-if="settings.backend === 'python'" :class="{ active: activeView === 'tickets' }" @click="activeView = 'tickets'">工单</button>
-        <button :class="{ active: activeView === 'evaluation' }" @click="activeView = 'evaluation'">评测</button>
+        <button v-if="access.authenticated" :class="{ active: activeView === 'profile' }" @click="activeView = 'profile'">我的信息</button>
+        <button v-if="access.authenticated && settings.backend === 'python'" :class="{ active: activeView === 'answers' }" @click="activeView = 'answers'">{{ ['admin', 'support'].includes(authSession?.role) ? '咨询与反馈' : '我的咨询' }}</button>
+        <button v-if="access.knowledge" :class="{ active: activeView === 'knowledge' }" @click="activeView = 'knowledge'">知识库</button>
+        <button v-if="access.authenticated && settings.backend === 'python'" :class="{ active: activeView === 'tickets' }" @click="activeView = 'tickets'">{{ access.admin ? '工单处理' : '我的工单' }}</button>
+        <button v-if="access.admin" :class="{ active: activeView === 'admin' }" @click="activeView = 'admin'">管理后台</button>
+        <button v-if="access.admin && settings.backend === 'python'" :class="{ active: activeView === 'diagnostics' }" @click="activeView = 'diagnostics'">客服诊断</button>
+        <button v-if="access.admin" :class="{ active: activeView === 'evaluation' }" @click="activeView = 'evaluation'">评测</button>
       </nav>
 
       <div class="topbar-tools">
@@ -18,21 +22,41 @@
           <i :class="healthOk ? 'online' : 'offline'"></i>
           {{ currentBackend.label }}
         </span>
-        <a class="docs-link" :href="docsUrl" target="_blank" rel="noreferrer">API 文档</a>
-        <button class="avatar-button" title="当前用户">{{ userInitial }}</button>
+        <a v-if="access.admin" class="docs-link" :href="docsUrl" target="_blank" rel="noreferrer">API 文档</a>
+        <button class="avatar-button" title="当前用户" @click="activeView = access.authenticated ? 'profile' : 'chat'">{{ userInitial }}</button>
       </div>
     </header>
 
     <div v-if="toast" class="toast" role="status">{{ toast }}</div>
-    <OperationsPanel v-if="settings.backend === 'python'" :key="currentBackend.baseUrl" :settings="settings"
+    <OperationsPanel v-if="settings.backend === 'python'" ref="operationsPanel" :key="currentBackend.baseUrl" :settings="settings"
       :visible="activeView === 'tickets'" :refresh-key="operationsRefresh" @session-change="sessionChanged" @notice="showToast" />
+    <AdminDashboard v-if="activeView === 'admin' && access.admin" :settings="settings" :session="authSession"
+      @notice="showToast" @session-expired="invalidateSession" />
+    <DiagnosticsPanel v-if="activeView === 'diagnostics' && access.admin && settings.backend === 'python'" :settings="settings" :session="authSession"
+      @notice="showToast" @session-expired="invalidateSession" />
+    <DiagnosticsPanel v-if="activeView === 'answers' && access.authenticated && settings.backend === 'python'" :settings="settings" :session="authSession" history-only
+      @notice="showToast" @session-expired="invalidateSession" />
+    <section v-if="activeView === 'profile' && access.authenticated" class="page page-profile">
+      <div class="page-heading"><div class="heading-copy"><span class="kicker">My account</span><h1>我的信息</h1><p>当前登录账号的个人资料和所属组织。</p></div></div>
+      <section class="workspace-card">
+        <dl class="detail-list">
+          <div><dt>姓名</dt><dd>{{ authSession.user?.display_name || '-' }}</dd></div>
+          <div><dt>邮箱</dt><dd>{{ authSession.user?.email || '-' }}</dd></div>
+          <div><dt>用户编号</dt><dd>{{ authSession.user_id || authSession.user?.id }}</dd></div>
+          <div><dt>所属组织</dt><dd>{{ authSession.organization?.name || authSession.organization_id }}</dd></div>
+          <div><dt>账号角色</dt><dd>{{ roleName }}</dd></div>
+        </dl>
+        <p class="muted">{{ access.admin ? '可进入管理后台查看本组织的业务数据。' : '个人对话与工单按当前账号隔离，后台数据按角色授权。' }}</p>
+        <button class="quiet-button" @click="activeView = 'tickets'">查看我的工单</button>
+      </section>
+    </section>
 
     <section v-if="activeView === 'chat'" class="page page-chat">
       <div class="page-heading">
         <div class="heading-copy">
           <span class="kicker">Conversation lab</span>
           <h1>和客服 Agent 对话</h1>
-          <p>发送一条真实请求，查看它如何识别意图、选择 Agent 并生成回复。</p>
+          <p>{{ access.admin ? '发送请求，查看 Agent 路由和处理结果。' : '咨询产品问题，或创建并跟进自己的工单。' }}</p>
         </div>
         <div class="heading-actions">
           <span class="session-label">{{ settings.conversationId || '新会话' }}</span>
@@ -56,23 +80,17 @@
                 <span>{{ item.role === 'user' ? '你' : currentBackend.label + ' Agent' }}</span>
                 <small v-if="item.meta">{{ item.meta }}</small>
               </div>
-              <details v-if="item.progress?.length" class="message-progress" :open="item.streaming">
+              <details v-if="access.admin && item.progress?.length" class="message-progress" :open="item.streaming">
                 <summary>{{ item.streaming ? '正在处理' : '处理进度' }}<small v-if="item.streaming">{{ item.elapsed || 0 }} 秒</small></summary>
                 <ol><li v-for="(step, index) in item.progress" :key="index" :class="step.status">{{ step.message }}</li></ol>
               </details>
               <p v-if="item.content">{{ item.content }}<span v-if="item.streaming" class="stream-cursor" aria-label="正在生成">▍</span></p>
               <p v-else-if="item.streaming" class="reply-waiting" role="status">{{ item.progress?.at(-1)?.message || '请求已发送，等待处理…' }}</p>
-              <details v-if="item.sources?.length" class="message-sources">
-                <summary>参考来源 · {{ item.sources.length }}</summary>
-                <article v-for="source in item.sources" :key="source.chunk_id || source.document_id || source.content">
-                  <strong>{{ source.title }}</strong><small>{{ source.product_version || source.document_version }} · {{ source.locator || source.chunk_id }}</small>
-                  <a v-if="safeSourceUrl(source.source_url)" :href="safeSourceUrl(source.source_url)" target="_blank" rel="noopener noreferrer">查看原文</a>
-                  <p>{{ source.content }}</p>
-                </article>
-              </details>
+              <AnswerEvidence v-if="item.role === 'assistant' && !item.streaming && (item.feedbackAvailable || item.sources?.length)" :sources="item.sources || []" />
+              <AnswerFeedback v-if="item.feedbackAvailable && access.authenticated && settings.backend === 'python'" :settings="settings" :session="authSession" :request-id="item.requestId" :answer="item.content" @notice="showToast" @session-expired="invalidateSession" />
               <p v-for="warning in item.warnings || []" :key="warning" class="danger">{{ warning }}</p>
               <button v-if="item.tasks?.length" class="quiet-button" @click="activeView = 'tickets'">核对 {{ item.tasks.length }} 份工单草稿</button>
-              <div v-if="item.trace" class="message-trace">
+              <div v-if="access.admin && item.trace" class="message-trace">
                 <div class="trace-head">
                   <span>工具调用</span>
                   <small v-if="item.trace.requestId">#{{ item.trace.requestId }}</small>
@@ -143,7 +161,7 @@
               </div>
             </section>
 
-            <section class="side-card connection-card">
+            <section v-if="access.admin" class="side-card connection-card">
               <div class="card-heading">
                 <div>
                   <span class="kicker">Connection</span>
@@ -170,7 +188,7 @@
               </div>
             </section>
 
-            <section class="side-card trace-card">
+            <section v-if="access.admin" class="side-card trace-card">
               <div class="card-heading">
                 <div>
                   <span class="kicker">Last trace</span>
@@ -210,14 +228,15 @@
               <p v-else class="side-empty">发送消息后，这里会显示 Agent 路由、意图和耗时。</p>
             </section>
 
-            <section class="side-card monitor-card">
+            <section v-if="access.admin" class="side-card monitor-card">
               <div class="card-heading">
                 <div>
                   <span class="kicker">Runtime</span>
-                  <h2>运行状态</h2>
+                  <h2>服务运行状态</h2>
                 </div>
                 <button class="link-button" @click="loadMonitor">刷新</button>
               </div>
+              <p class="muted">当前服务进程的聚合统计</p>
               <div class="mini-stats">
                 <div><strong>{{ totalRequests }}</strong><span>请求</span></div>
                 <div><strong>{{ agentCount }}</strong><span>Agent</span></div>
@@ -231,7 +250,7 @@
       </div>
     </section>
 
-    <section v-else-if="activeView === 'knowledge'" class="page page-knowledge">
+    <section v-else-if="activeView === 'knowledge' && access.knowledge" class="page page-knowledge">
       <div class="page-heading">
         <div class="heading-copy">
           <span class="kicker">Knowledge operations</span>
@@ -299,7 +318,7 @@
       </section>
     </section>
 
-    <section v-else-if="activeView === 'evaluation'" class="page page-evaluation">
+    <section v-else-if="activeView === 'evaluation' && access.admin" class="page page-evaluation">
       <div class="page-heading">
         <div class="heading-copy">
           <span class="kicker">Evaluation lab</span>
@@ -348,6 +367,11 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import OperationsPanel from './components/OperationsPanel.vue'
 import KnowledgeDocuments from './components/KnowledgeDocuments.vue'
+import AdminDashboard from './components/AdminDashboard.vue'
+import AnswerEvidence from './components/AnswerEvidence.vue'
+import AnswerFeedback from './components/AnswerFeedback.vue'
+import DiagnosticsPanel from './components/DiagnosticsPanel.vue'
+import { identityKey, workspaceAccess } from './lib/access.js'
 import { evaluationReports, promoteEvaluation } from './lib/operations.js'
 import {
   addKnowledge,
@@ -371,7 +395,11 @@ const availableBackends = availableBackendIds()
 const settings = reactive(createInitialSettings())
 const activeView = ref('chat')
 const authSession = ref(null), operationsRefresh = ref(0), knowledgeRefresh = ref(0), reports = ref([])
-const canEditKnowledge = computed(() => ['admin', 'kb_admin'].includes(authSession.value?.role))
+const access = computed(() => workspaceAccess(authSession.value))
+const canEditKnowledge = computed(() => access.value.knowledge)
+const operationsPanel = ref(null)
+const roleName = computed(() => ({ admin: '管理员', customer: '普通用户', support: '客服', kb_admin: '知识库管理员' })[authSession.value?.role] || '-')
+let sessionGeneration = 0
 const messages = ref([])
 const draft = ref('')
 const busy = ref(false)
@@ -403,7 +431,7 @@ let sidebarObserver
 
 const currentBackend = computed(() => backendMeta(settings.backend, settings))
 const docsUrl = computed(() => `${currentBackend.value.baseUrl}/docs`)
-const userInitial = computed(() => (settings.userId || 'U').slice(0, 1).toUpperCase())
+const userInitial = computed(() => (authSession.value?.user?.display_name || settings.userId || 'U').slice(0, 1).toUpperCase())
 const activeAlerts = computed(() => monitorData.value.active_alerts || [])
 const agentCount = computed(() => Object.keys(monitorData.value.agent_stats || {}).length)
 const totalRequests = computed(() => Object.values(monitorData.value.agent_stats || {}).reduce((sum, item) => sum + Number(item.total || 0), 0))
@@ -431,15 +459,39 @@ function persist() { saveSettings(settings) }
 
 function sessionChanged(session) {
   const userId = session?.user_id || session?.user?.id
-  if (!session || (userId && settings.userId !== userId)) {
+  if (identityKey(authSession.value) !== identityKey(session) || !session) {
+    sessionGeneration += 1
     chatController?.abort()
+    clearInterval(chatTimer); chatController = null; chatTimer = null
+    busy.value = false; chatPending.value = false; draft.value = ''
     messages.value = []; lastResponse.value = null; lastTrace.value = null
     searchResults.value = []; evalData.value = null; reports.value = []; settings.conversationId = ''
+    docTitle.value = ''; docContent.value = ''; docSource.value = ''; docVersion.value = ''
+    searchQuery.value = ''; searchVersion.value = ''; searchKnowledgeBase.value = ''
+    statusText.value = ''
+    knowledgeCount.value = '-'
+    monitorData.value = { agent_stats: {}, tool_stats: {}, active_alerts: [], suggestions: [] }
+    skillsData.value = { count: 0, skills: [], errors: [] }
   }
   authSession.value = session
   if (userId) settings.userId = userId
+  else settings.userId = ''
+  if (!access.value.views.includes(activeView.value)) activeView.value = 'chat'
   knowledgeRefresh.value += 1
   persist(); refreshConsole()
+}
+
+function invalidateSession() {
+  if (operationsPanel.value) operationsPanel.value.invalidateSession()
+  else sessionChanged(null)
+}
+
+function handleFailure(error, generation, notify = true) {
+  if (generation !== sessionGeneration) return
+  if ([401, 403].includes(error.status)) {
+    invalidateSession()
+    showToast('登录已失效或权限发生变化，请重新登录')
+  } else if (notify) showToast(error.message)
 }
 
 function safeSourceUrl(value) {
@@ -447,13 +499,17 @@ function safeSourceUrl(value) {
 }
 
 async function loadReports() {
-  try { reports.value = (await evaluationReports(settings)).items } catch (error) { showToast(error.message) }
+  if (!access.value.admin) return
+  const generation = sessionGeneration
+  try { const data = await evaluationReports(settings); if (generation === sessionGeneration) reports.value = data.items } catch (error) { handleFailure(error, generation) }
 }
 
 async function promoteReport(report) {
+  if (!access.value.admin) return
+  const generation = sessionGeneration
   busy.value = true
-  try { await promoteEvaluation(settings, report.run_id); showToast('已设置回归基线，后续评测会检查版本是否可比') }
-  catch (error) { showToast(error.message) } finally { busy.value = false }
+  try { await promoteEvaluation(settings, report.run_id); if (generation === sessionGeneration) showToast('已设置回归基线，后续评测会检查版本是否可比') }
+  catch (error) { handleFailure(error, generation) } finally { if (generation === sessionGeneration) busy.value = false }
 }
 
 function updateSidebarHeight() {
@@ -467,7 +523,7 @@ function updateSidebarHeight() {
 function switchBackend(type) {
   if (chatPending.value) return
   settings.backend = type
-  authSession.value = null
+  sessionChanged(null)
   settings.conversationId = ''
   persist()
   healthOk.value = false
@@ -480,7 +536,10 @@ function switchBackend(type) {
 }
 
 async function refreshConsole() {
-  await Promise.allSettled([checkHealth(), loadStats(), loadMonitor(), loadSkills()])
+  const requests = [checkHealth()]
+  if (access.value.knowledge) requests.push(loadStats(), loadSkills())
+  if (access.value.admin) requests.push(loadMonitor())
+  await Promise.allSettled(requests)
 }
 
 async function checkHealth() {
@@ -494,78 +553,80 @@ async function checkHealth() {
     healthLabel.value = '不可用'
     statusText.value = error.message
 
-    // When the saved backend is stale, try the other configured service once.
-    const fallback = availableBackends.find((type) => type !== settings.backend)
-    if (fallback) {
-      try {
-        const fallbackData = await requestHealth(fallback, settings)
-        if (fallbackData.status === 'ok') {
-          settings.backend = fallback
-          persist()
-          healthOk.value = true
-          healthLabel.value = fallbackData.status
-          statusText.value = JSON.stringify(fallbackData, null, 2)
-          await Promise.allSettled([loadStats(), loadMonitor(), loadSkills()])
-        }
-      } catch {
-        // Keep the original error visible when both services are unavailable.
-      }
-    }
   }
 }
 
 async function loadStats() {
+  if (!access.value.knowledge) return
+  const generation = sessionGeneration
   try {
     const data = await requestKnowledgeStats(settings.backend, settings)
-    knowledgeCount.value = data.total_chunks ?? data.totalChunks ?? '-'
-  } catch {
-    knowledgeCount.value = '-'
+    if (generation === sessionGeneration) knowledgeCount.value = data.total_chunks ?? data.totalChunks ?? '-'
+  } catch (error) {
+    if (generation === sessionGeneration) knowledgeCount.value = '-'
+    handleFailure(error, generation, false)
   }
 }
 
 async function loadMonitor() {
+  if (!access.value.admin) return
+  const generation = sessionGeneration
   try {
-    monitorData.value = await requestMonitor(settings.backend, settings)
-  } catch {
-    monitorData.value = { agent_stats: {}, tool_stats: {}, active_alerts: [], suggestions: [] }
+    const data = await requestMonitor(settings.backend, settings)
+    if (generation === sessionGeneration) monitorData.value = data
+  } catch (error) {
+    if (generation === sessionGeneration) monitorData.value = { agent_stats: {}, tool_stats: {}, active_alerts: [], suggestions: [] }
+    handleFailure(error, generation, false)
   }
 }
 
 async function loadSkills() {
+  if (!access.value.knowledge) return
+  const generation = sessionGeneration
   try {
-    skillsData.value = await requestSkills(settings.backend, settings)
-  } catch {
-    skillsData.value = { count: 0, skills: [], errors: [] }
+    const data = await requestSkills(settings.backend, settings)
+    if (generation === sessionGeneration) skillsData.value = data
+  } catch (error) {
+    if (generation === sessionGeneration) skillsData.value = { count: 0, skills: [], errors: [] }
+    handleFailure(error, generation, false)
   }
 }
 
 async function reloadSkillSet() {
+  if (!access.value.admin) return
+  const generation = sessionGeneration
   busy.value = true
   try {
-    skillsData.value = await reloadSkills(settings.backend, settings)
+    const data = await reloadSkills(settings.backend, settings)
+    if (generation !== sessionGeneration) return
+    skillsData.value = data
     showToast('Skills 已重新加载')
   } catch (error) {
-    statusText.value = error.message
-    showToast('Skills 加载失败')
-  } finally { busy.value = false }
+    handleFailure(error, generation)
+  } finally { if (generation === sessionGeneration) busy.value = false }
 }
 
 async function sendMessage() {
   const content = draft.value.trim()
   if (!content || busy.value) return
+  if (settings.backend === 'python' && !access.value.authenticated) { showToast('请先登录后再发送消息'); return }
+  const generation = sessionGeneration
   messages.value.push({ id: createMessageId(), role: 'user', content })
   draft.value = ''
   busy.value = true
   chatPending.value = true
-  chatController = new AbortController()
+  const controller = new AbortController()
+  chatController = controller
   const reply = reactive({ id: createMessageId(), role: 'assistant', content: '', streaming: true,
     elapsed: 0, progress: [{ message: '请求已发送，等待处理', status: 'pending' }], trace: null })
   messages.value.push(reply)
   const startedAt = Date.now()
-  chatTimer = setInterval(() => { reply.elapsed = Math.floor((Date.now() - startedAt) / 1000) }, 1000)
+  const timer = setInterval(() => { reply.elapsed = Math.floor((Date.now() - startedAt) / 1000) }, 1000)
+  chatTimer = timer
   scheduleChatScroll()
   try {
     const response = await requestChatStream(settings.backend, settings, content, (event) => {
+      if (generation !== sessionGeneration) return
       if (event.type === 'session' && !settings.conversationId) {
         settings.conversationId = event.conv_id
         persist()
@@ -596,7 +657,8 @@ async function sendMessage() {
         reply.trace.toolCalls.push(event)
       }
       scheduleChatScroll()
-    }, chatController.signal)
+    }, controller.signal)
+    if (generation !== sessionGeneration) return
     if (response.conversationId && !settings.conversationId) {
       settings.conversationId = response.conversationId
       persist()
@@ -605,14 +667,19 @@ async function sendMessage() {
     reply.streaming = false
     reply.content = response.response
     reply.sources = response.sources; reply.tasks = response.tasks; reply.warnings = response.warnings
+    reply.requestId = response.requestId; reply.feedbackAvailable = response.feedbackAvailable
     if (response.tasks?.length) operationsRefresh.value += 1
     for (const step of reply.progress) { if (step.status === 'pending') step.status = 'done' }
-    lastTrace.value = await loadToolTrace(response.requestId)
-    const meta = [response.intent, response.primaryAgent || response.agentType, response.knowledgeUsed ? 'RAG' : '', response.escalated ? '转人工' : ''].filter(Boolean).join(' · ')
+    const trace = await loadToolTrace(response.requestId)
+    if (generation !== sessionGeneration) return
+    lastTrace.value = trace
+    const meta = access.value.admin ? [response.intent, response.primaryAgent || response.agentType, response.knowledgeUsed ? 'RAG' : '', response.escalated ? '转人工' : ''].filter(Boolean).join(' · ') : ''
     reply.meta = meta
     reply.trace = lastTrace.value?.trace || reply.trace
     await loadMonitor()
   } catch (error) {
+    if (generation !== sessionGeneration) return
+    if ([401, 403].includes(error.status)) { handleFailure(error, generation); return }
     const stopped = error.name === 'AbortError'
     reply.meta = stopped ? '已停止生成' : '请求失败'
     if (!reply.content) reply.content = stopped ? '已停止生成。' : error.message
@@ -620,10 +687,11 @@ async function sendMessage() {
     for (const step of reply.progress) { if (step.status === 'pending') step.status = stopped ? 'stopped' : 'error' }
   } finally {
     reply.streaming = false
-    clearInterval(chatTimer)
-    chatController = null
-    chatPending.value = false
-    busy.value = false
+    clearInterval(timer)
+    if (generation === sessionGeneration) {
+      chatController = null; chatTimer = null
+      chatPending.value = false; busy.value = false
+    }
     await nextTick()
     messageList.value?.scrollTo({ top: messageList.value.scrollHeight, behavior: 'smooth' })
   }
@@ -653,65 +721,76 @@ function clearConversation() {
 }
 
 async function searchKnowledge() {
+  if (!access.value.knowledge) return
+  const generation = sessionGeneration
   busy.value = true
   try {
     const data = await requestSearch(settings.backend, settings, searchQuery.value, 5, searchStrategy.value, true,
       { product_version: searchVersion.value, knowledge_base_id: searchKnowledgeBase.value })
+    if (generation !== sessionGeneration) return
     searchResults.value = data.results || []
     showToast(`检索完成，返回 ${searchResults.value.length} 条结果`)
   } catch (error) {
-    statusText.value = error.message
-    showToast('检索失败，请检查连接')
-  } finally { busy.value = false }
+    handleFailure(error, generation)
+  } finally { if (generation === sessionGeneration) busy.value = false }
 }
 
 async function submitKnowledge() {
+  if (!access.value.knowledge) return
+  const generation = sessionGeneration
   busy.value = true
   try {
     const data = await addKnowledge(settings.backend, settings, [{ title: docTitle.value.trim(), content: docContent.value.trim(), source_url: docSource.value.trim(), product_version: docVersion.value.trim() }])
+    if (generation !== sessionGeneration) return
     knowledgeRefresh.value += 1
     statusText.value = JSON.stringify(data, null, 2)
     await loadStats()
     showToast('文档已添加')
   } catch (error) {
-    statusText.value = error.message
-    showToast('文档导入失败')
-  } finally { busy.value = false }
+    handleFailure(error, generation)
+  } finally { if (generation === sessionGeneration) busy.value = false }
 }
 
 async function handleUpload(event) {
   const file = event.target.files?.[0]
   event.target.value = ''
-  if (!file) return
+  if (!file || !access.value.knowledge) return
+  const generation = sessionGeneration
   busy.value = true
   try {
     const data = await uploadKnowledge(settings.backend, settings, file)
+    if (generation !== sessionGeneration) return
     knowledgeRefresh.value += 1
     statusText.value = JSON.stringify(data, null, 2)
     await loadStats()
     showToast(`${file.name} 导入成功`)
   } catch (error) {
-    statusText.value = error.message
-    showToast('文件导入失败')
-  } finally { busy.value = false }
+    handleFailure(error, generation)
+  } finally { if (generation === sessionGeneration) busy.value = false }
 }
 
 async function runEvaluation() {
+  if (!access.value.admin) return
+  const generation = sessionGeneration
   busy.value = true
   try {
-    evalData.value = await requestEvaluation(settings.backend, settings)
+    const data = await requestEvaluation(settings.backend, settings)
+    if (generation !== sessionGeneration) return
+    evalData.value = data
     if (settings.backend === 'python') await loadReports()
     showToast('评测完成')
   } catch (error) {
-    statusText.value = error.message
-    showToast('评测运行失败')
-  } finally { busy.value = false }
+    handleFailure(error, generation)
+  } finally { if (generation === sessionGeneration) busy.value = false }
 }
 
 async function loadToolTrace(requestId) {
+  if (!access.value.admin) return null
+  const generation = sessionGeneration
   try {
     return await requestToolTrace(settings.backend, settings, requestId)
-  } catch {
+  } catch (error) {
+    handleFailure(error, generation, false)
     return null
   }
 }

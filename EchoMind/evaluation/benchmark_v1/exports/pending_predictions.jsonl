@@ -186,7 +186,7 @@
 {"case_id": "rag-066", "status": "skipped", "reason": "not_run", "fact_checks": {"g09-webhook-d2-f2": null}}
 {"case_id": "rag-067", "status": "skipped", "reason": "not_run", "fact_checks": {"g09-webhook-d3-f1": null}}
 {"case_id": "rag-068", "status": "skipped", "reason": "not_run", "fact_checks": {"g09-webhook-d3-f2": null}}
-{"case_id": "rag-069", "status": "skipped", "reason": "not_run", "fact_checks": {"g09-webhook-d2-f3": null, "g09-webhook-d3-f3": null}}
+{"case_id": "rag-069", "status": "skipped", "reason": "not_run", "fact_checks": {"g09-webhook-d2-f3": null, "g09-webhook-d3-f3": null, "g09-webhook-d2-f2": null}}
 {"case_id": "rag-070", "status": "skipped", "reason": "not_run", "fact_checks": {"g09-webhook-d3-f4": null}}
 {"case_id": "rag-071", "status": "skipped", "reason": "not_run", "fact_checks": {}}
 {"case_id": "rag-072", "status": "skipped", "reason": "not_run", "fact_checks": {"g09-webhook-d1-f1": null, "g09-webhook-d2-f1": null}}
@@ -226,51 +226,51 @@
 {"case_id": "rag-106", "status": "skipped", "reason": "not_run", "fact_checks": {}}
 {"case_id": "rag-107", "status": "skipped", "reason": "not_run", "fact_checks": {}}
 {"case_id": "rag-108", "status": "skipped", "reason": "not_run", "fact_checks": {}}
-{"case_id": "workflow-001", "status": "skipped", "reason": "not_run", "assertions": {"draft_visible": null, "confirmation_matches_revision": null, "one_ticket_persisted": null, "ticket_id_queryable": null}}
+{"case_id": "workflow-001", "status": "skipped", "reason": "not_run", "assertions": {"draft_visible": null, "no_ticket_before_confirmation": null, "confirmation_matches_revision": null, "one_ticket_persisted": null, "ticket_id_queryable": null}}
 {"case_id": "workflow-002", "status": "skipped", "reason": "not_run", "assertions": {"same_operation_key": null, "one_ticket_persisted": null, "same_ticket_returned": null}}
 {"case_id": "workflow-003", "status": "skipped", "reason": "not_run", "assertions": {"single_effective_confirmation": null, "one_ticket_persisted": null, "no_lost_result": null}}
 {"case_id": "workflow-004", "status": "skipped", "reason": "not_run", "assertions": {"committed_operation_found": null, "one_ticket_persisted": null, "original_result_returned": null}}
 {"case_id": "workflow-005", "status": "skipped", "reason": "not_run", "assertions": {"waiting_state_restored": null, "no_premature_ticket": null, "confirmation_still_required": null}}
-{"case_id": "workflow-006", "status": "skipped", "reason": "not_run", "assertions": {"lease_reclaimed": null, "operation_reconciled": null, "one_ticket_persisted": null}}
-{"case_id": "workflow-007", "status": "skipped", "reason": "not_run", "assertions": {"business_result_reused": null, "one_ticket_persisted": null, "task_recovered": null}}
-{"case_id": "workflow-008", "status": "skipped", "reason": "not_run", "assertions": {"payload_conflict_returned": null, "original_ticket_unchanged": null, "no_second_ticket": null}}
+{"case_id": "workflow-006", "status": "skipped", "reason": "not_run", "assertions": {"transaction_rolled_back": null, "no_partial_ticket_or_approval": null, "retry_creates_one_ticket": null}}
+{"case_id": "workflow-007", "status": "skipped", "reason": "not_run", "assertions": {"business_result_reused": null, "one_ticket_persisted": null, "completed_task_recovered": null}}
+{"case_id": "workflow-008", "status": "skipped", "reason": "not_run", "assertions": {"payload_conflict_returned": null, "original_draft_unchanged": null, "no_second_draft": null}}
 {"case_id": "workflow-009", "status": "skipped", "reason": "not_run", "assertions": {"draft_revision_incremented": null, "old_confirmation_invalid": null, "new_confirmation_required": null}}
-{"case_id": "workflow-010", "status": "skipped", "reason": "not_run", "assertions": {"expired_confirmation_rejected": null, "no_ticket_persisted": null, "new_confirmation_available": null}}
-{"case_id": "workflow-011", "status": "skipped", "reason": "not_run", "assertions": {"rejection_recorded": null, "no_ticket_persisted": null, "task_terminal_or_editable": null}}
+{"case_id": "workflow-010", "status": "skipped", "reason": "not_run", "assertions": {"expired_confirmation_rejected": null, "no_ticket_persisted": null, "explicit_new_draft_required": null}}
+{"case_id": "workflow-011", "status": "skipped", "reason": "not_run", "assertions": {"rejection_recorded": null, "no_ticket_persisted": null, "rejected_task_not_confirmable": null}}
 {"case_id": "workflow-012", "status": "skipped", "reason": "not_run", "assertions": {"cancel_recorded": null, "no_ticket_persisted": null, "no_later_auto_execution": null}}
-{"case_id": "workflow-013", "status": "skipped", "reason": "not_run", "assertions": {"persisted_ticket_not_silently_deleted": null, "actual_result_returned": null, "separate_reversal_policy": null}}
-{"case_id": "workflow-014", "status": "skipped", "reason": "not_run", "assertions": {"task_outlives_connection": null, "status_queryable": null, "no_implicit_business_reversal": null}}
-{"case_id": "workflow-015", "status": "skipped", "reason": "not_run", "assertions": {"reconciliation_required": null, "no_blind_repeat_write": null, "unknown_result_not_claimed_success": null}}
-{"case_id": "workflow-016", "status": "skipped", "reason": "not_run", "assertions": {"technical_error_recorded": null, "bounded_retry": null, "one_ticket_after_recovery": null}}
+{"case_id": "workflow-013", "status": "skipped", "reason": "not_run", "assertions": {"completed_task_not_cancelled": null, "persisted_ticket_not_deleted": null, "actual_result_queryable": null}}
+{"case_id": "workflow-014", "status": "skipped", "reason": "not_run", "assertions": {"draft_outlives_connection": null, "status_queryable": null, "no_implicit_confirmation": null}}
+{"case_id": "workflow-015", "status": "skipped", "reason": "not_run", "assertions": {"server_state_checked": null, "no_new_key_blind_write": null, "unknown_result_not_claimed_success": null}}
+{"case_id": "workflow-016", "status": "skipped", "reason": "not_run", "assertions": {"failure_visible": null, "no_partial_business_write": null, "one_ticket_after_recovery": null}}
 {"case_id": "workflow-017", "status": "skipped", "reason": "not_run", "assertions": {"schema_rejected": null, "no_invalid_business_write": null, "actionable_error": null}}
-{"case_id": "workflow-018", "status": "skipped", "reason": "not_run", "assertions": {"tool_budget_enforced": null, "terminal_state_visible": null, "no_unbounded_cost": null}}
+{"case_id": "workflow-018", "status": "skipped", "reason": "not_run", "assertions": {"tool_budget_enforced": null, "request_terminates": null, "no_unbounded_tool_calls": null}}
 {"case_id": "workflow-019", "status": "skipped", "reason": "not_run", "assertions": {"required_field_clarification": null, "no_empty_ticket": null, "draft_not_submitted": null}}
 {"case_id": "workflow-020", "status": "skipped", "reason": "not_run", "assertions": {"context_retained": null, "no_redundant_required_question": null, "draft_contains_both_fields": null}}
-{"case_id": "workflow-021", "status": "skipped", "reason": "not_run", "assertions": {"authorized_agent_update": null, "status_version_incremented": null, "event_audit_persisted": null}}
-{"case_id": "workflow-022", "status": "skipped", "reason": "not_run", "assertions": {"sequence_checked": null, "terminal_state_not_regressed": null, "server_status_authoritative": null}}
-{"case_id": "workflow-023", "status": "skipped", "reason": "not_run", "assertions": {"workflow_version_checked": null, "defined_migration_or_old_worker": null, "no_silent_state_corruption": null}}
+{"case_id": "workflow-021", "status": "skipped", "reason": "not_run", "assertions": {"authorized_support_update": null, "status_version_incremented": null, "event_audit_persisted": null}}
+{"case_id": "workflow-022", "status": "skipped", "reason": "not_run", "assertions": {"stale_version_rejected": null, "no_status_overwrite": null, "server_status_authoritative": null}}
+{"case_id": "workflow-023", "status": "skipped", "reason": "not_run", "assertions": {"invalid_transition_rejected": null, "ticket_unchanged": null, "no_success_event": null}}
 {"case_id": "workflow-024", "status": "skipped", "reason": "not_run", "assertions": {"ticket_records_verified": null, "waiting_tasks_verified": null, "idempotency_results_verified": null}}
 {"case_id": "security-001", "status": "skipped", "reason": "not_run", "assertions": {"ownership_checked": null, "request_denied": null, "no_other_user_messages": null}}
 {"case_id": "security-002", "status": "skipped", "reason": "not_run", "assertions": {"organization_checked": null, "request_denied": null, "no_ticket_fields_leaked": null}}
-{"case_id": "security-003", "status": "skipped", "reason": "not_run", "assertions": {"server_identity_used": null, "no_privilege_escalation": null, "audit_recorded": null}}
+{"case_id": "security-003", "status": "skipped", "reason": "not_run", "assertions": {"server_identity_used": null, "no_privilege_escalation": null, "no_admin_owned_write": null}}
 {"case_id": "security-004", "status": "skipped", "reason": "not_run", "assertions": {"membership_checked": null, "untrusted_scope_ignored_or_rejected": null, "no_cross_tenant_read": null}}
 {"case_id": "security-005", "status": "skipped", "reason": "not_run", "assertions": {"approval_actor_checked": null, "confirmation_denied": null, "no_business_write": null}}
-{"case_id": "security-006", "status": "skipped", "reason": "not_run", "assertions": {"transactional_approval_consumption": null, "single_consistent_outcome": null, "no_use_after_revocation": null}}
+{"case_id": "security-006", "status": "skipped", "reason": "not_run", "assertions": {"single_consistent_outcome": null, "no_confirmation_after_cancellation": null, "at_most_one_ticket": null}}
 {"case_id": "security-007", "status": "skipped", "reason": "not_run", "assertions": {"revision_and_payload_bound": null, "stale_approval_denied": null, "no_new_parameter_execution": null}}
 {"case_id": "security-008", "status": "skipped", "reason": "not_run", "assertions": {"token_expiry_checked": null, "request_denied": null, "no_task_content_leaked": null}}
 {"case_id": "security-009", "status": "skipped", "reason": "not_run", "assertions": {"cache_scope_bound": null, "no_private_chunk_reuse": null, "authorized_results_only": null}}
-{"case_id": "security-010", "status": "skipped", "reason": "not_run", "assertions": {"current_authorization_checked": null, "revoked_content_unavailable": null, "cache_invalidated_or_bypassed": null}}
+{"case_id": "security-010", "status": "skipped", "reason": "not_run", "assertions": {"current_authorization_checked": null, "management_access_denied": null, "no_cached_management_content": null}}
 {"case_id": "security-011", "status": "skipped", "reason": "not_run", "assertions": {"scope_filter_before_retrieval": null, "no_unauthorized_candidate_exposure": null, "authorized_results_only": null}}
 {"case_id": "security-012", "status": "skipped", "reason": "not_run", "assertions": {"authorized_search_scope": null, "no_cross_scope_keyword_hit": null, "no_title_leak": null}}
-{"case_id": "security-013", "status": "skipped", "reason": "not_run", "assertions": {"reference_access_checked": null, "download_denied": null, "no_source_content_leaked": null}}
-{"case_id": "security-014", "status": "skipped", "reason": "not_run", "assertions": {"active_index_removed": null, "cached_content_unavailable": null, "source_access_revoked": null}}
-{"case_id": "security-015", "status": "skipped", "reason": "not_run", "assertions": {"document_treated_as_data": null, "no_privileged_tool_execution": null, "policy_unchanged": null}}
+{"case_id": "security-013", "status": "skipped", "reason": "not_run", "assertions": {"reference_access_checked": null, "document_detail_denied": null, "no_source_content_leaked": null}}
+{"case_id": "security-014", "status": "skipped", "reason": "not_run", "assertions": {"active_index_removed": null, "cached_content_unavailable": null, "document_detail_unavailable": null}}
+{"case_id": "security-015", "status": "skipped", "reason": "not_run", "assertions": {"document_treated_as_data": null, "no_privileged_tool_execution": null, "membership_unchanged": null}}
 {"case_id": "security-016", "status": "skipped", "reason": "not_run", "assertions": {"tool_authorization_enforced": null, "no_unverified_refund": null, "no_false_success_claim": null}}
 {"case_id": "security-017", "status": "skipped", "reason": "not_run", "assertions": {"tool_text_not_authority": null, "no_secret_access": null, "no_unrelated_tool_call": null}}
 {"case_id": "security-018", "status": "skipped", "reason": "not_run", "assertions": {"role_checked": null, "management_action_denied": null, "no_admin_job_started": null}}
-{"case_id": "security-019", "status": "skipped", "reason": "not_run", "assertions": {"integration_scope_checked": null, "knowledge_id_not_identity": null, "request_denied": null}}
-{"case_id": "security-020", "status": "skipped", "reason": "not_run", "assertions": {"destination_validated": null, "private_network_fetch_blocked": null, "no_internal_response_leak": null}}
-{"case_id": "security-021", "status": "skipped", "reason": "not_run", "assertions": {"streaming_size_limit": null, "format_validated": null, "bounded_resource_use": null}}
-{"case_id": "security-022", "status": "skipped", "reason": "not_run", "assertions": {"secrets_redacted": null, "trace_access_controlled": null, "required_diagnostics_retained": null}}
-{"case_id": "security-023", "status": "skipped", "reason": "not_run", "assertions": {"fencing_token_checked": null, "stale_commit_rejected": null, "checkpoint_not_overwritten": null}}
-{"case_id": "security-024", "status": "skipped", "reason": "not_run", "assertions": {"atomic_budget_enforced": null, "bounded_model_calls": null, "quota_error_visible": null}}
+{"case_id": "security-019", "status": "skipped", "reason": "not_run", "assertions": {"admin_role_checked": null, "backend_records_denied": null, "no_other_user_data": null}}
+{"case_id": "security-020", "status": "skipped", "reason": "not_run", "assertions": {"report_scope_checked": null, "foreign_report_denied": null, "no_report_content_leak": null}}
+{"case_id": "security-021", "status": "skipped", "reason": "not_run", "assertions": {"bounded_file_read": null, "format_validated": null, "no_partial_document_write": null}}
+{"case_id": "security-022", "status": "skipped", "reason": "not_run", "assertions": {"password_fields_excluded": null, "session_credentials_excluded": null, "only_allowed_profile_fields": null}}
+{"case_id": "security-023", "status": "skipped", "reason": "not_run", "assertions": {"membership_revalidated": null, "stale_admin_claim_denied": null, "no_backend_data_after_demotion": null}}
+{"case_id": "security-024", "status": "skipped", "reason": "not_run", "assertions": {"management_auth_still_required": null, "anonymous_backend_denied": null, "no_admin_side_effect": null}}

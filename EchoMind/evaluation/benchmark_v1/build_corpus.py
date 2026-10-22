@@ -13,6 +13,7 @@ import json
 from collections import Counter
 from pathlib import Path
 from typing import Any
+from scenario_review import revise_corpus
 
 
 ROOT = Path(__file__).resolve().parent
@@ -604,6 +605,7 @@ def main() -> None:
     _doc_map.clear()
     _groups.clear()
     define_dataset()
+    revise_corpus(DOCUMENTS, CASES)
     validate()
     write_jsonl(ROOT / "data" / "corpus.jsonl", DOCUMENTS)
     write_jsonl(ROOT / "data" / "rag_cases.jsonl", CASES)

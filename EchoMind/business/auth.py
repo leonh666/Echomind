@@ -120,6 +120,20 @@ class AuthService:
                          (self.store.now(), hashlib.sha256(token.encode("utf-8")).hexdigest()))
         return {"logged_out": True}
 
+    def profile(self, actor: Principal) -> dict[str, Any]:
+        """Return only the authenticated member's public account fields."""
+        with self.store._transaction() as conn:
+            self.store._actor(conn, actor)
+            user = conn.execute(
+                "SELECT id,email,display_name,created_at FROM users WHERE id=?",
+                (actor.user_id,),
+            ).fetchone()
+            organization = conn.execute(
+                "SELECT id,name,created_at FROM organizations WHERE id=?",
+                (actor.organization_id,),
+            ).fetchone()
+            return {"user": dict(user), "organization": dict(organization)}
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Trusted local EchoMind business account administration")

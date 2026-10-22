@@ -33,11 +33,11 @@
       "expected_intent": "greeting"
     },
     {
-      "message": "请把这次事件按二级升级流程处理。",
+      "message": "这个问题已经反馈两次了，麻烦交给你们主管处理。",
       "expected_intent": "escalation"
     },
     {
-      "message": "这个事项需要启动上一级处理流程。",
+      "message": "我想请主管介入这张工单，走升级处理流程。",
       "expected_intent": "escalation"
     },
     {
@@ -89,11 +89,11 @@
       "expected_intent": "logistics"
     },
     {
-      "message": "签收后的第六天还可以提交退货申请吗？",
+      "message": "付费充值包买了六天，一点没用，还能申请退款吗？",
       "expected_intent": "refund"
     },
     {
-      "message": "收到货六天后想退货，是否仍在申请期限内？",
+      "message": "充值以后完全没使用，第六天来申请退款还来得及吗？",
       "expected_intent": "refund"
     },
     {

@@ -2,6 +2,8 @@
 
 更新：2026-10-21。对应《项目改进说明书》的第一轮功能落实。编排继续使用现有 Python Orchestrator、asyncio 与工具函数，前端继续使用 Vue。没有新增 Agent 开发框架。
 
+2026-10-21 追加管理员后台与个人工作区分离，收紧知识、审计、Trace、评测和指标入口，并增加组织后台分页。详细角色矩阵、账号演示与监控凭据步骤见 [管理员与用户权限说明](管理员与用户权限说明.md)。本次新增功能的完整测试结论以本轮验收记录为准，原有测试基线不代表新增功能已全部验证。
+
 ## 1. 本轮实际实现
 
 | 范围 | 行为与代码 | 验证方式 |
@@ -42,7 +44,7 @@ flowchart LR
 
 ## 3. 启动、账号与权限
 
-从 Python 仓库复制 `.env.example`，填写服务商提供的模型标识与密钥、Redis 配置。现有 `.env` 不应覆盖或提交。服务启动后默认要求登录，健康检查和内部抓取指标入口可免登录。
+从 Python 仓库复制 `.env.example`，填写服务商提供的模型标识与密钥、Redis 配置。现有 `.env` 不应覆盖或提交。服务启动后默认要求登录，健康检查保留最小公开响应；指标抓取需要独立 Bearer 凭据或管理员会话。首次 Compose 启动前，按 [管理员与用户权限说明](管理员与用户权限说明.md#监控抓取凭据) 生成本地 `.secrets/metrics_token`，该文件不会提交到仓库。
 
 后端与前端一起部署，先在 `EchoMindFrontend` 目录复制其 `.env.example` 为 `.env`，将 Redis 密码设为与 Python 配置一致，保留需要的宿主机端口。启动时显式加载两个文件，前端配置最后加载以保留端口设置：
 
@@ -51,6 +53,8 @@ docker compose --env-file ../EchoMind/.env --env-file .env up -d --build
 ```
 
 业务路径为 `/app/data/business/echomind.sqlite3`，已挂载到宿主机 `EchoMind/data/business`。评测报告在 `data/eval/reports`，每个组织的基线在 `data/eval/baseline-org-*.json`。保留现有 Redis 和 Chroma 数据卷。
+
+Redis、Chroma 和 Prometheus 的宿主机端口仅绑定 `127.0.0.1`，数据管理限服务器本机或受控 SSH 隧道。应用容器仍通过内部网络连接依赖，无需为远程用户开放这些端口。
 
 首次开通管理员（容器需已运行；密码由终端隐式输入，至少 12 字符）：
 
@@ -69,28 +73,30 @@ docker compose exec echomind python -m business.auth --db /app/data/business/ech
 
 | 角色 | 权限 |
 |---|---|
-| customer | 对话、检索公共与本组织资料、管理自己的草稿和查询自己的工单 |
+| customer | 查看自己的资料、对话、管理自己的草稿和查询自己的工单；回答可使用公共与本组织授权知识，无后台检索调试入口 |
 | support | 同组织工单/任务与审计处理，工单状态更新 |
-| kb_admin | 普通知识读取与本组织文档管理；自己的工单 |
-| admin | 同组织工单管理、知识管理、评测/基线、运行监控 |
+| kb_admin | 授权知识读取、检索调试与本组织文档管理；自己的工单，无完整组织后台 |
+| admin | 本组织用户、任务、工单、审计和会话索引后台；知识管理、评测/基线、运行监控与 Trace |
 
-`user_id` 请求正文不再决定身份。对话 ID 与组织、所有者绑定；工作记忆按组织和用户命名空间保存。支持人员/管理员在同组织有服务处理权限。Trace 也检查请求归属。
+`user_id` 请求正文不再决定身份。对话 ID 与组织、所有者绑定；工作记忆按组织和用户命名空间保存。支持人员/管理员在同组织有服务处理权限。Trace 仅限管理员，并继续校验请求所属组织；普通用户不能读取后台 Trace 或审计。会话后台仅展示索引，不展示聊天全文。`/monitor` 与 `/metrics` 是应用进程聚合指标，不是按组织业务统计。
 
 浏览器使用 HttpOnly、SameSite=Lax Cookie，前端不将会话令牌放入 localStorage。生产 HTTPS 配置 `ECHOMIND_SECURE_COOKIES=true`，并将真实站点 origin（协议、主机、端口）加入 `ECHOMIND_CORS_ORIGINS`。代理保留 Host 端口；变更请求检查 Origin。命令行登录可传 `transport=bearer`，后续使用 `Authorization: Bearer ...`。登录限流是单进程的每 IP 十次/分钟；不是分布式网关限流。
 
-`ECHOMIND_AUTH_REQUIRED=false` 仅供明确选择的旧版本地调试，不能作为正常部署配置；其匿名公共知识写入和正文身份兼容行为不适合作为隔离验收结果。
+`ECHOMIND_AUTH_REQUIRED=false` 仅供明确选择的旧版本地聊天调试，不能作为正常部署配置。后台、知识维护、评测、监控和审计仍要求认证及相应角色，不会因此开放匿名知识写入；匿名聊天的正文身份兼容行为不适合作为隔离验收结果。
 
 ## 4. API 与手工验收
 
 | 接口 | 作用 |
 |---|---|
 | POST `/auth/login`、GET `/auth/me`、POST `/auth/logout` | 登录、当前身份、注销 |
+| GET `/admin/overview`、`/admin/users`、`/admin/activity`、`/admin/conversations` | 管理员的当前组织计数、用户、审计和会话索引 |
+| GET `/admin/tasks`、`/admin/tickets` | 管理员的当前组织完整任务、工单分页记录 |
 | POST/GET `/tasks` | 保存草稿、列出有权限任务 |
 | GET `/tasks/{id}`、PUT `/tasks/{id}/draft` | 重启/刷新后读取、按 revision 修改 |
 | POST `/tasks/{id}/confirm` | 校验确认内容并原子提交 |
 | POST `/tasks/{id}/cancel`、`/reject` | 结束未提交任务 |
 | GET `/tickets`、GET/PATCH `/tickets/{id}` | 查询、按 version 更新状态 |
-| GET `/tasks/{id}/events`、`/tickets/{id}/events` | 审计记录 |
+| GET `/tasks/{id}/events`、`/tickets/{id}/events` | 仅管理员和客服可读取的组织范围审计记录 |
 | POST `/knowledge/add`、`/knowledge/upload` | JSON、TXT、Markdown 导入，最多 200 文档/批，文件 10 MiB |
 | GET `/knowledge/documents`、GET/PUT/DELETE `/knowledge/documents/{id}` | 文档读取、更新替换与删除 |
 | POST `/search?query=…&strategy=hybrid&rewrite=false` | 检索策略；结果包含 score_type 与实际执行状态 |

@@ -1,7 +1,9 @@
 """Native Python business API. No agent framework and no application imports."""
 import asyncio
 from dataclasses import asdict, dataclass
+import hmac
 import os
+from pathlib import Path
 import time
 from typing import Any, Callable, Dict, Literal, Optional
 
@@ -68,6 +70,30 @@ def knowledge_scope(request=None, actor=None):
             "user_id": actor.user_id if actor else "anonymous"}
 
 
+def management_roles(path):
+    """Central route policy; enforced even when development chat auth is off."""
+    if path.startswith("/knowledge/") or path in {"/knowledge", "/search", "/skills"}:
+        return {"admin", "kb_admin"}
+    if ((path.startswith("/tasks/") or path.startswith("/tickets/")) and path.endswith("/events")):
+        return {"admin", "support"}
+    if (path in {"/admin", "/monitor", "/metrics", "/docs", "/openapi.json", "/redoc", "/skills/reload", "/eval", "/trace"}
+            or path.startswith(("/admin/", "/eval/", "/trace/", "/diagnostics/"))):
+        return {"admin"}
+    return None
+
+
+def metrics_credential_matches(token):
+    """A dedicated scraper credential grants access to /metrics only."""
+    expected = os.getenv("ECHOMIND_METRICS_TOKEN", "").strip()
+    filename = os.getenv("ECHOMIND_METRICS_TOKEN_FILE", "").strip()
+    if filename:
+        try:
+            expected = Path(filename).read_text(encoding="utf-8").strip()
+        except (OSError, UnicodeError):
+            return False
+    return bool(token and expected) and hmac.compare_digest(token.encode(), expected.encode())
+
+
 def install(app: FastAPI):
     """Protect existing and new routes when real lifespan configures Runtime."""
     from business.store import BusinessError
@@ -93,31 +119,29 @@ def install(app: FastAPI):
                     if origin.rstrip("/") not in allowed | {own.rstrip("/")}:
                         return JSONResponse(status_code=403, content={
                             "detail": {"code": "ORIGIN_DENIED", "message": "请求来源未获允许"}})
-            public = request.url.path in {
+            path = request.scope["path"]
+            root_path = request.scope.get("root_path", "").rstrip("/")
+            if root_path and (path == root_path or path.startswith(root_path + "/")):
+                path = path[len(root_path):]
+            path = path.rstrip("/") or "/"
+            public = path in {
                 "/auth/login", "/auth/logout", "/health", "/health/live", "/health/ready",
-                "/metrics", "/docs", "/openapi.json", "/redoc",
             } or request.method == "OPTIONS"
             token = token_from(request)
+            if path == "/metrics" and request.method in {"GET", "HEAD"} and metrics_credential_matches(token):
+                return await call_next(request)
             if token and not public:
                 request.state.principal = await asyncio.to_thread(rt.auth.authenticate, token)
-            elif rt.auth_required and not public:
+            elif (rt.auth_required or management_roles(path)) and not public:
                 return JSONResponse(status_code=401, content={
                     "detail": {"code": "LOGIN_REQUIRED", "message": "请先登录"}})
-            if request.state.principal is not None:
+            if request.state.principal is not None and not public:
                 # Role changes are revalidated by authenticate/store, not copied
                 # from an unsigned request body or from model tool parameters.
-                path = request.url.path
-                management = (
-                    path == "/skills/reload" or path.startswith("/eval/") or path == "/eval/run"
-                    or path == "/monitor" or path == "/trace/tools"
-                    or (request.method in {"POST", "PUT", "PATCH", "DELETE"}
-                        and path.startswith("/knowledge/"))
-                )
-                if management:
-                    roles = {"admin", "kb_admin"} if path.startswith("/knowledge/") else {"admin"}
-                    if request.state.principal.role not in roles:
-                        return JSONResponse(status_code=403, content={
-                            "detail": {"code": "ROLE_REQUIRED", "message": "当前账号没有此操作权限"}})
+                roles = management_roles(path)
+                if roles and request.state.principal.role not in roles:
+                    return JSONResponse(status_code=403, content={
+                        "detail": {"code": "ROLE_REQUIRED", "message": "当前账号没有此操作权限"}})
             return await call_next(request)
         except BusinessError as error:
             return JSONResponse(status_code=error.http_status,
@@ -167,7 +191,25 @@ async def login(body: Login, request: Request, response: Response):
 @router.get("/auth/me", tags=["身份"])
 async def me(request: Request):
     actor = principal(request)
-    return {"authenticated": True, **asdict(actor)}
+    profile = await asyncio.to_thread(runtime().auth.profile, actor)
+    return {"authenticated": True, **asdict(actor), **profile}
+
+
+def admin_service():
+    from business.admin import AdminService
+    return AdminService(runtime().store)
+
+
+@router.get("/admin/overview", tags=["管理员后台"])
+async def admin_overview(request: Request):
+    return await asyncio.to_thread(admin_service().overview, require_role(request, "admin"))
+
+
+@router.get("/admin/{section}", tags=["管理员后台"])
+async def admin_records(section: Literal["users", "activity", "conversations", "tasks", "tickets"],
+                        request: Request, limit: int = 50, offset: int = 0):
+    actor = require_role(request, "admin")
+    return await asyncio.to_thread(getattr(admin_service(), section), actor, limit, offset)
 
 
 @router.post("/auth/logout", tags=["身份"])
@@ -258,13 +300,13 @@ async def list_tickets(request: Request, limit: int = 50):
 @router.get("/tasks/{task_id}/events", tags=["工单任务"])
 async def task_events(task_id: str, request: Request):
     return {"items": await asyncio.to_thread(runtime().store.list_events,
-                                             principal(request), task_id=task_id)}
+                                             require_role(request, "admin", "support"), task_id=task_id)}
 
 
 @router.get("/tickets/{ticket_id}/events", tags=["工单"])
 async def ticket_events(ticket_id: str, request: Request):
     return {"items": await asyncio.to_thread(runtime().store.list_events,
-                                             principal(request), ticket_id=ticket_id)}
+                                             require_role(request, "admin", "support"), ticket_id=ticket_id)}
 
 
 @router.get("/tickets/{ticket_id}", tags=["工单"])
@@ -276,3 +318,53 @@ async def get_ticket(ticket_id: str, request: Request):
 async def update_ticket(ticket_id: str, body: TicketUpdate, request: Request):
     return await asyncio.to_thread(runtime().store.update_ticket_status, principal(request),
                                    ticket_id, body.status, body.version)
+
+
+def insight_service():
+    from business.insights import InsightService
+    return InsightService(runtime().store)
+
+
+class AnswerFeedback(StrictInput):
+    revision: int = Field(default=0, ge=0)
+    decision: Literal["accepted", "edited", "discarded"]
+    reason: Literal["none", "incorrect", "incomplete", "irrelevant", "outdated", "missing_knowledge", "unsafe", "other"] = "none"
+    final_answer: str = Field(default="", max_length=100000)
+    comment: str = Field(default="", max_length=2000)
+    outcome: Literal["unknown", "resolved", "unresolved"] = "unknown"
+
+
+class DiagnosticCreate(StrictInput):
+    days: int = Field(default=7, ge=1, le=90)
+    end_at: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+
+
+@router.get("/answers", tags=["回答反馈"])
+async def answer_history(request: Request, limit: int = 20, offset: int = 0):
+    return await asyncio.to_thread(insight_service().list_answers, principal(request), limit, offset)
+
+
+@router.get("/answers/{request_id}", tags=["回答反馈"])
+async def answer_detail(request_id: str, request: Request):
+    return await asyncio.to_thread(insight_service().get_answer, principal(request), request_id)
+
+
+@router.put("/answers/{request_id}/feedback", tags=["回答反馈"])
+async def answer_feedback(request_id: str, body: AnswerFeedback, request: Request):
+    return await asyncio.to_thread(insight_service().save_feedback, principal(request), request_id,
+                                   body.model_dump(exclude={"revision"}), body.revision)
+
+
+@router.post("/diagnostics/reports", status_code=201, tags=["业务诊断"])
+async def create_diagnostic(body: DiagnosticCreate, request: Request):
+    return await asyncio.to_thread(insight_service().create_report, require_role(request, "admin"), body.days, body.end_at)
+
+
+@router.get("/diagnostics/reports", tags=["业务诊断"])
+async def diagnostic_history(request: Request, limit: int = 20, offset: int = 0):
+    return await asyncio.to_thread(insight_service().list_reports, require_role(request, "admin"), limit, offset)
+
+
+@router.get("/diagnostics/reports/{report_id}", tags=["业务诊断"])
+async def diagnostic_detail(report_id: str, request: Request):
+    return await asyncio.to_thread(insight_service().get_report, require_role(request, "admin"), report_id)

@@ -1,7 +1,8 @@
 {
-  "dataset_version": "echomind-benchmark-v1.0",
-  "schema_version": "1.0",
+  "dataset_version": "echomind-benchmark-v1.1",
+  "schema_version": "1.1",
   "created_date": "2026-10-21",
+  "revised_date": "2026-10-22",
   "origin": "synthetic_original",
   "human_verified_cases": 0,
   "review_status": "all_pending_independent_human_review",
@@ -64,26 +65,41 @@
     "workflow": 24
   },
   "source_family_groups": 123,
+  "evaluation_tracks": {
+    "legacy_taxonomy_compatibility": 7,
+    "native_python_business_contract": 48,
+    "reference_product_knowledge": 108,
+    "support_intent_classification": 113
+  },
   "prompt_template_exact_overlaps": [],
   "files": {
     "corpus.jsonl": {
-      "sha256": "24f1f6371e635490fe6aaf454b4f09221a9468bdc567d60c00225ec12cbe9059"
+      "sha256": "b346fde270cffeb66f564b95d25df8a69cff11f88cd5724c061f2790f0de2d67"
     },
     "intent_cases.jsonl": {
-      "sha256": "3d74ec6f1c05f61a29fe02f5f929de3b6cb8d880d50a55b31889acaddae78405"
+      "sha256": "58dc63de1e69ecea738455b7a78eaba4a8df38f23590c72d25f510400c919100"
     },
     "rag_cases.jsonl": {
-      "sha256": "3e13f7660be233111902323831d392843fb2e66f4374c7140e9808f699248bb8"
+      "sha256": "0265ca3628105aa0fa1b33493a9a1cdc88676d124a523bb975311dea39755f5b"
     },
     "contract_cases.jsonl": {
-      "sha256": "116068ccca280ca149dfc8d683c8eb44ccc5674cd37adcaea6259fae7b3031a7"
+      "sha256": "d4c6c0d88fa9a7e614864295552bb32567e42816b8b1f150484fd588deb419b8"
     }
   },
   "limitations": [
     "Synthetic fixtures; not production traffic or independently human-verified gold.",
     "Frozen grouped test fixtures are visible in this repository, not a blind benchmark.",
     "Corpus is intentionally indexed across dev/test; test questions, labels and facts are never index inputs.",
-    "Contracts describe future acceptance requirements; no implementation pass is implied.",
+    "Native Python contracts remain unexecuted acceptance specifications; no passing result is implied.",
+    "SupportLab knowledge rules describe a fictional supported product, not deployed EchoMind features.",
     "No external benchmark rows or user data are bundled."
-  ]
+  ],
+  "ai_scenario_review": {
+    "id": "ai-scenario-review-2026-10-22",
+    "reviewed_documents": 36,
+    "reviewed_cases": 276,
+    "human_approved": false,
+    "evidence_file": "reviews/scenario_review_v1_1.jsonl",
+    "sha256": "7847a01d8930b16071eb78d6260f61a6aa3ca6fbe1963d8a72ce363e30cbf1ee"
+  }
 }

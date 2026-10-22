@@ -1,5 +1,6 @@
 # Credentials and personal configuration
 .env
+.secrets/
 .env.*
 !.env.example
 *.pem

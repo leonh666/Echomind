@@ -170,6 +170,8 @@ def main():
     parser.add_argument("command", choices=("baseline", "api"))
     parser.add_argument("--split", choices=("dev", "test", "all"), default="dev")
     parser.add_argument("--mode", choices=("retrieval", "chat"), default="retrieval")
+    parser.add_argument("--track", default="all", choices=("all", "reference_product_knowledge",
+                        "support_intent_classification", "legacy_taxonomy_compatibility"))
     parser.add_argument("--base-url")
     parser.add_argument("--token-env", default="ECHOMIND_EVAL_BEARER")
     parser.add_argument("--timeout", type=float, default=90)
@@ -187,7 +189,8 @@ def main():
             parser.error("api requires an explicit http(s) --base-url")
     selected = [c for c in load_cases(args.split) if
                 c["kind"] in ({"rag"} if args.command == "baseline" or args.mode == "retrieval"
-                              else {"rag", "intent"})]
+                              else {"rag", "intent"}) and
+                (args.track == "all" or c.get("evaluation_track") == args.track)]
     if not selected:
         parser.error("no applicable cases")
     docs = read_jsonl(DATA / "corpus.jsonl")
@@ -231,6 +234,8 @@ def main():
                       ks=tuple(sorted({k for k in (1, 3, 5, args.top_k) if k <= args.top_k})))
     report["run_metadata"] = {
         "run_id": run_id, "started_at": started_at, "split": args.split,
+        "dataset_version": json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))["dataset_version"],
+        "selected_track": args.track,
         "method": "stdlib_bm25_k1=1.5_b=0.75" if engine else "current_echo_api_" + args.mode,
         "ranking_unit": "chunk",
         "relevance_unit": "source_document",

@@ -1,0 +1,256 @@
+{
+  "documents": [
+    {
+      "document_id": "g01-login-d1",
+      "title": "SupportLab 登录保护规则｜测试 v1.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v1.0。\n适用范围：使用邮箱和密码登录的测试工作区；仅在问题指定测试 v1.0 时使用本页。\n规则：\n- 测试 v1.0 中，同一账号连续 5 次密码错误会锁定登录 15 分钟。\n- 锁定期间再次提交密码不会延长这 15 分钟。\n- 锁定到期后需要重新输入密码，不会自动建立登录会话。\n- 登录锁定只影响当前账号，不会锁定同一工作区的其他成员。\n限制与排除：本页不适用于测试 v2.0，不包含账号实际是否被锁定的实时记录。",
+      "product_version": "test-v1.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g01-login-d2",
+      "title": "SupportLab 登录保护规则｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：使用邮箱和密码登录的测试工作区；测试 v2.0 的登录保护。\n规则：\n- 测试 v2.0 中，同一账号连续 6 次密码错误会锁定登录 20 分钟。\n- 锁定期间再次提交密码不会延长这 20 分钟。\n- 用户成功登录后，该账号的连续密码错误计数清零。\n- 工作区管理员不能手动解除登录保护锁定。\n限制与排除：单点登录身份提供商自身的锁定策略不在本页范围内；不要把测试 v1.0 的阈值用于本版。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g01-login-d3",
+      "title": "SupportLab 登录故障排查｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：已确认使用测试 v2.0，且登录页提示账号被保护锁定的用户。\n规则：\n- 遇到登录保护锁定时，应停止重试并等锁定时间结束，再用正确密码登录。\n- 忘记密码可以从登录页发送重置邮件，但重置密码不会提前解除已有锁定。\n- 重置邮件 10 分钟内未到达时，先检查垃圾邮件，再核对输入的邮箱地址。\n- 联系支持时可提供错误码和报错时间，不得提供密码或重置链接。\n限制与排除：排查步骤不能证明某个邮箱已注册，也不能查询当前账号的解锁时刻。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g02-api-d1",
+      "title": "SupportLab API 限流与鉴权｜测试 v1.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v1.0。\n适用范围：调用测试 API 的标准工作区；仅限测试 v1.0。\n规则：\n- 测试 v1.0 的标准工作区 API 限额为每分钟 60 个请求。\n- 该限额按工作区汇总，同一工作区的多个 API 密钥共享额度。\n- 超过限额时 API 返回 HTTP 429。\n- API 密钥应放在 Authorization: Bearer 请求头中。\n限制与排除：不承诺请求均匀分布或突发容量；本页不描述测试 v2.0。",
+      "product_version": "test-v1.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g02-api-d2",
+      "title": "SupportLab API 限流与鉴权｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：调用测试 API 的标准工作区；测试 v2.0 使用以下配额。\n规则：\n- 测试 v2.0 的标准工作区 API 限额为每分钟 120 个请求。\n- 该限额按工作区汇总，创建新的 API 密钥不会增加工作区额度。\n- 超过限额返回 HTTP 429，并通过 Retry-After 响应头给出建议等待秒数。\n- 缺少或无效的 API 密钥返回 HTTP 401，等待限流窗口不能修复鉴权错误。\n限制与排除：专属合同配额不在公开测试资料范围内；不可把 401 当成 429 重试。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g02-api-d3",
+      "title": "SupportLab API 重试与请求排查｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：客户端处理测试 v2.0 的 HTTP 错误；以下是排查规则，不是实际请求日志。\n规则：\n- 收到 HTTP 429 后，应至少等待 Retry-After 指定的秒数再重试。\n- 收到 HTTP 401 后，应检查密钥是否有效、是否属于目标工作区以及 Authorization 请求头。\n- 提交支持请求时，应附上 X-Request-ID、HTTP 状态码和请求时间，并遮蔽 API 密钥。\n- 单纯查询类请求可在网络超时后重试，具有写入效果的请求应先检查接口是否支持幂等键。\n限制与排除：不能从公开规则推断某个密钥当前剩余额度，也不提供真实密钥或租户配置。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g03-plan-d1",
+      "title": "SupportLab 套餐变更规则｜测试 v1.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v1.0。\n适用范围：直接在测试控制台购买的按月订阅；仅限测试 v1.0。\n规则：\n- 测试 v1.0 的月付套餐升级在下一续费日生效。\n- 升级生效前仍使用原套餐额度，提交升级申请不会立即补充额度。\n- 测试 v1.0 的月付套餐降级也在下一续费日生效。\n- 当期已使用的额度不会因提交套餐变更申请而清零。\n限制与排除：不覆盖年度合同、渠道购买或真实支付处理；本页不适用于测试 v2.0。",
+      "product_version": "test-v1.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g03-plan-d2",
+      "title": "SupportLab 套餐变更规则｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：直接在测试控制台购买的按月订阅；测试 v2.0 的标准套餐。\n规则：\n- 测试 v2.0 的月付套餐升级在差额支付成功后立即生效。\n- 升级差额按当前账期剩余天数折算，以确认页显示金额为准。\n- 月付套餐降级在下一续费日生效，当期不按降级退还差额。\n- 变更套餐不会重置当前账期的已用额度。\n限制与排除：本页不提供某个账号的差额金额；不得使用测试 v1.0 的升级时间规则。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g03-plan-d3",
+      "title": "SupportLab 续费取消与变更失败｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：测试 v2.0 月付订阅的自动续费和升级失败处理。\n规则：\n- 关闭自动续费后，已付费套餐可使用到当前账期结束。\n- 关闭自动续费本身不等于提交退款申请。\n- 升级差额支付失败时，保留原套餐和原账期，不应用新套餐权益。\n- 取消自动续费的入口是工作区的账单设置页，操作权限属于所有者。\n限制与排除：不说明线下合同终止办法；此处没有任何真实账单或支付记录。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g04-sync-d1",
+      "title": "SupportLab 知识同步规则｜测试 v1.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v1.0。\n适用范围：已连接的公开帮助中心知识源；仅限测试 v1.0 的定时同步。\n规则：\n- 测试 v1.0 的公开帮助中心知识源每 24 小时自动同步一次。\n- 自动同步只读取连接配置允许的目录，不会遍历整个网站。\n- 单次同步失败不会删除上一次成功导入的文档。\n- 测试 v1.0 的手动同步只允许工作区所有者执行。\n限制与排除：网页存在不等于已获抓取权限；此处不包含真实网站连接。",
+      "product_version": "test-v1.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g04-sync-d2",
+      "title": "SupportLab 知识同步规则｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：已连接且授权读取的公开帮助中心知识源；测试 v2.0 的增量同步。\n规则：\n- 测试 v2.0 的公开帮助中心知识源每 6 小时自动同步一次。\n- 同一知识源通过源文档标识识别更新，内容变更后替换该文档的旧索引。\n- 自动同步失败会保留上一次成功版本，并把本次任务标记为失败。\n- 知识管理员和工作区所有者可以发起手动同步，普通成员不可以。\n限制与排除：同步间隔不保证远端内容立即可检索；不适用于本地上传文件。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g04-sync-d3",
+      "title": "SupportLab 知识删除与同步诊断｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：测试 v2.0 已连接知识源的删除传播、状态查询和失败排查。\n规则：\n- 源站删除文档后，下一次成功同步会删除对应检索索引。\n- 删除整个知识源会立即禁用该源检索，随后异步清理其索引。\n- 同步返回 403 时，应检查来源授权和允许读取的目录，不能反复重试绕过权限。\n- 同步任务页会显示最近成功时间、任务状态和失败原因。\n限制与排除：任务成功时间只能从实际任务页查询，不能由这份规则推算；不绕过来源访问控制。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g05-recovery-d1",
+      "title": "SupportLab 密码重置规则｜测试 v1.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v1.0。\n适用范围：使用邮箱密码的测试账号；只说明测试 v1.0 的密码重置链接。\n规则：\n- 测试 v1.0 的密码重置链接自发送起 30 分钟内有效。\n- 每条密码重置链接只能成功使用一次。\n- 重新申请密码重置会使此前尚未使用的重置链接失效。\n- 重置成功后，需要使用新密码重新登录。\n限制与排除：不适用于单点登录账号；本页没有任何真实重置链接或验证码。",
+      "product_version": "test-v1.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g05-recovery-d2",
+      "title": "SupportLab 密码重置规则｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：使用邮箱密码的测试账号；测试 v2.0 的密码重置与会话处理。\n规则：\n- 测试 v2.0 的密码重置链接自发送起 15 分钟内有效。\n- 每条密码重置链接只能成功使用一次，重新申请会立即使旧链接失效。\n- 密码重置成功后，所有已登录会话都会退出。\n- 通过登录页的忘记密码入口发送重置邮件，不需要先登录。\n限制与排除：不能协助读取用户邮箱；密码重置不等于清除双因素认证。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g05-recovery-d3",
+      "title": "SupportLab 双因素认证恢复｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：已启用双因素认证且仍可访问注册邮箱的测试账号。\n规则：\n- 丢失认证器时，可以在双因素验证页使用预先保存的恢复码。\n- 每个恢复码仅可成功使用一次，使用后不能再次用于登录。\n- 恢复码也全部丢失时，需要提交账号恢复工单并完成邮箱归属验证。\n- 支持人员不会索取当前动态验证码，也不会在聊天中直接关闭双因素认证。\n限制与排除：没有注册邮箱访问权时的进一步身份核验流程不在本页范围；不存在通用恢复码。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g06-members-d1",
+      "title": "SupportLab 成员邀请规则｜测试 v1.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v1.0。\n适用范围：测试 v1.0 工作区通过邮件邀请新成员的场景。\n规则：\n- 测试 v1.0 的成员邀请链接有效期为 7 天。\n- 邀请链接只能由被邀请邮箱注册或登录的账号接受。\n- 工作区所有者可以撤销尚未接受的邀请。\n- 邀请过期后需要重新发送，原链接不会自动延长。\n限制与排除：不说明企业目录自动同步；邀请链接不应作为公开共享入口。",
+      "product_version": "test-v1.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g06-members-d2",
+      "title": "SupportLab 成员邀请规则｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：测试 v2.0 工作区通过邮件邀请新成员的场景。\n规则：\n- 测试 v2.0 的成员邀请链接有效期为 72 小时。\n- 邀请链接仅允许被邀请邮箱对应的账号接受，转发给其他邮箱不能加入。\n- 工作区所有者和成员管理员都可以发送或撤销邀请。\n- 邀请撤销后立即失效，不需要等待 72 小时结束。\n限制与排除：现有成员的角色变更不通过重新接受邀请完成；本页不授予任何实际权限。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g06-members-d3",
+      "title": "SupportLab 工作区角色与退出｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：测试 v2.0 工作区的所有者、成员管理员、普通成员权限。\n规则：\n- 普通成员可以使用已发布的客服应用，但不能管理邀请和工作区账单。\n- 成员管理员可以管理普通成员，不能转移工作区所有权或管理账单。\n- 只有当前所有者可以转移工作区所有权，目标必须是已加入的成员。\n- 所有者需要先完成所有权转移，才能退出仍有其他成员的工作区。\n限制与排除：角色描述不证明当前用户持有什么角色；实际授权须由服务端检查。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g07-orders-d1",
+      "title": "SupportLab 演示设备配送规则｜测试 v1.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v1.0。\n适用范围：测试商城中状态为已支付、库存充足的标准演示设备订单；仅限测试 v1.0。\n规则：\n- 测试 v1.0 中，库存充足且支付成功的标准演示设备订单在 3 个工作日内出库。\n- 工作日不包含周六、周日和测试商城标记的休息日。\n- 预售设备的出库时间以订单页面展示的预售日期为准。\n- 出库时间不等于签收时间，运输时效不计入出库承诺。\n限制与排除：本测试资料没有真实物流单号、收货地址或实时库存。",
+      "product_version": "test-v1.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g07-orders-d2",
+      "title": "SupportLab 演示设备配送规则｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：测试商城中状态为已支付、库存充足的标准演示设备订单；测试 v2.0。\n规则：\n- 测试 v2.0 中，库存充足且支付成功的标准演示设备订单在 2 个工作日内出库。\n- 工作日不包含周六、周日和测试商城标记的休息日。\n- 预售设备不适用 2 个工作日出库规则，应查看订单页面的预售日期。\n- 出库后可以在订单详情查看物流单号，出库承诺不包含运输时长。\n限制与排除：出库时限不是送达保证；库存不足订单不适用标准时限。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g07-orders-d3",
+      "title": "SupportLab 订单地址与取消｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：测试 v2.0 演示设备实物订单的修改与取消。\n规则：\n- 订单未进入拣货时，购买者可以在订单详情提交收货地址修改。\n- 订单已进入拣货或已出库时，不支持直接修改地址，需要联系支持确认可行处理方式。\n- 订单未出库时可以申请取消；已出库时需要走退货申请，不能直接取消。\n- 提交取消申请不代表已经取消成功，应以订单状态更新为准。\n限制与排除：联系支持不保证拦截成功；不能仅根据聊天内容确认真实订单已修改或取消。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g08-support-d1",
+      "title": "SupportLab 人工支持服务时间｜测试 v1.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v1.0。\n适用范围：测试 v1.0 的标准工作区人工聊天支持；时间统一为北京时间。\n规则：\n- 测试 v1.0 的人工聊天支持开放时间为工作日 09:00 至 18:00，北京时间。\n- 非开放时间可以提交工单，但不会立即接入人工聊天。\n- 工单提交成功后会返回一个可查询的工单编号。\n- 人工聊天的开放时间不代表所有工单都能当日解决。\n限制与排除：不适用于专属服务合同；时间规则不是实时坐席空闲状态。",
+      "product_version": "test-v1.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g08-support-d2",
+      "title": "SupportLab 人工支持服务时间｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：测试 v2.0 的标准工作区人工聊天支持；时间统一为北京时间。\n规则：\n- 测试 v2.0 的人工聊天支持开放时间为工作日 09:00 至 20:00，北京时间。\n- 非开放时间允许提交工单；人工聊天仅在后续开放时段提供，接入时间以当时排队情况为准。\n- 标准工单首次响应目标为 1 个工作日，这不是问题解决时限。\n- 标记紧急不会自动获得专属合同响应承诺，需按实际服务等级处理。\n限制与排除：工作日以测试服务日历为准；本页不包含节假日日历或实际排队人数。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g08-support-d3",
+      "title": "SupportLab 人工交接与工单状态｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：测试 v2.0 中机器人转人工或创建支持工单的交接规则。\n规则：\n- 交接摘要应包含问题描述、已尝试步骤、错误码和用户期望，不应包含密码或完整密钥。\n- 用户确认创建工单后，系统才可提交；生成摘要本身不等于创建成功。\n- 只有收到创建工具返回的工单编号，才可以告诉用户工单已创建。\n- 已创建工单的处理进度需要通过工单查询接口获取，不能根据回复语气推测状态。\n限制与排除：本页没有真实工单；不得编造编号、处理进度或已通知人工的结果。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g09-webhook-d1",
+      "title": "SupportLab Webhook 投递规则｜测试 v1.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v1.0。\n适用范围：测试 v1.0 的 HTTPS 事件回调；以下次数只统计自动重试。\n规则：\n- 测试 v1.0 的 Webhook 首次投递失败后，最多自动重试 3 次。\n- 接收端返回任意 HTTP 2xx 状态码视为本次投递成功。\n- 接收端返回非 2xx 状态码或连接超时视为投递失败。\n- 自动重试次数不包含首次投递，也不包含管理员手动重放。\n限制与排除：不保证事件只送达一次；不说明测试 v2.0 的重试上限。",
+      "product_version": "test-v1.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g09-webhook-d2",
+      "title": "SupportLab Webhook 投递规则｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：测试 v2.0 的 HTTPS 事件回调；以下次数只统计自动重试。\n规则：\n- 测试 v2.0 的 Webhook 首次投递失败后，最多自动重试 5 次。\n- 接收端必须在 5 秒内返回 HTTP 2xx，超时或非 2xx 均视为本次投递失败。\n- Webhook 采用至少一次投递，同一个 event_id 可能重复送达。\n- 自动重试次数不包含首次投递，最多自动投递总次数为 6 次。\n限制与排除：手动重放另行计数；没有顺序投递保证，也不能承诺绝不重复。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g09-webhook-d3",
+      "title": "SupportLab Webhook 验签与消费｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：接收测试 v2.0 Webhook 的业务服务；先验签再接受事件。\n规则：\n- 验签使用 X-Demo-Signature 请求头和原始请求体，不能先重排 JSON 再计算签名。\n- 接收端应以 event_id 建立去重记录，重复事件不得再次执行同一业务写入。\n- 耗时业务应先把已验签事件可靠入队，再及时返回 HTTP 2xx。\n- 签名失败时应拒绝处理，并检查回调密钥及原始请求体是否被代理修改，不能关闭签名校验来放行。\n限制与排除：文档不包含回调密钥；不能为通过验签而关闭签名校验。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g10-upload-d1",
+      "title": "SupportLab 知识文件上传限制｜测试 v1.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v1.0。\n适用范围：测试 v1.0 控制台手动上传单个知识文件；大小使用 MiB。\n规则：\n- 测试 v1.0 的单个知识文件最大为 10 MiB。\n- 测试 v1.0 支持 UTF-8 编码的 TXT 和 Markdown 文件。\n- 超过单文件上限会拒绝上传，不会自动拆成多个文件。\n- 上传成功只代表文件接收成功，仍需等待解析与索引完成。\n限制与排除：MiB 与十进制 MB 不等价；此版本没有 PDF 上传能力。",
+      "product_version": "test-v1.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g10-upload-d2",
+      "title": "SupportLab 知识文件上传限制｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：测试 v2.0 控制台手动上传单个知识文件；大小使用 MiB。\n规则：\n- 测试 v2.0 的单个知识文件最大为 25 MiB。\n- 测试 v2.0 支持 UTF-8 编码的 TXT、Markdown 和可复制文本的 PDF。\n- 仅含扫描图片的 PDF 不会自动 OCR，需要先转换为可提取文本再上传。\n- 密码加密的 PDF 需要先由有权限的用户解密，系统不会绕过文档密码。\n限制与排除：文件大小达标不代表内容必然可解析；不读取受密码保护的原文件。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g10-upload-d3",
+      "title": "SupportLab 解析索引与重复上传｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：测试 v2.0 已通过大小和类型检查的知识文件。\n规则：\n- 知识文件只有进入 ready 状态后才会参与检索，uploaded 和 processing 状态都不可检索。\n- 解析失败会标记为 failed，并在文件详情展示错误原因，不会把空内容当作成功索引。\n- 同一知识库内，文件内容哈希相同时复用已有文档，不因改文件名重复建索引。\n- 文件内容发生改变后需要提交更新并等待新版本 ready，原文件名相同不代表内容已更新。\n限制与排除：本页不承诺具体索引完成秒数；知识库之间的同内容文件不按本页去重。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g11-invoice-d1",
+      "title": "SupportLab 测试发票处理规则｜测试 v1.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v1.0。\n适用范围：已支付且可申请测试发票的控制台订单；仅限测试 v1.0。\n规则：\n- 测试 v1.0 的发票申请审核通过后，预计在 5 个工作日内生成测试电子票据。\n- 审核未通过的申请不进入票据生成时限。\n- 申请人应核对抬头和税号，不能使用占位符代替必要字段。\n- 该环境只生成测试电子票据，不具有真实税务凭证效力。\n限制与排除：这里的票据流程为虚构业务测试，不构成任何税务规则说明。",
+      "product_version": "test-v1.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g11-invoice-d2",
+      "title": "SupportLab 测试发票处理规则｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：已支付且可申请测试发票的控制台订单；测试 v2.0 的票据流程。\n规则：\n- 测试 v2.0 的发票申请审核通过后，预计在 2 个工作日内生成测试电子票据。\n- 待支付、已全额退款的订单不能新申请测试发票。\n- 抬头和税号在申请提交前需要核对，审核状态可在订单的发票页查看。\n- 该环境只生成测试电子票据，不具有真实税务凭证效力。\n限制与排除：不说明真实税务机关要求，也不能由文档判定某一订单是否审核通过。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g11-invoice-d3",
+      "title": "SupportLab 测试票据更正与下载｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：测试 v2.0 已提交或已生成测试电子票据的订单。\n规则：\n- 申请仍在待审核状态时，可以撤回后修改抬头或税号并重新提交。\n- 测试电子票据已经生成后，不能直接覆盖原票据，应提交票据更正工单。\n- 票据生成后，工作区所有者可在对应订单的发票页下载 PDF。\n- 更正工单需要订单编号、更正原因和正确抬头；不要在公开聊天中粘贴完整税号。\n限制与排除：提交更正工单不等于票据已更正；本页不含任何真实税号或票据文件。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g12-refund-d1",
+      "title": "SupportLab 未使用充值退款｜测试 v1.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v1.0。\n适用范围：测试 v1.0 控制台直接购买、完全未使用的付费充值包；不适用于订阅。\n规则：\n- 测试 v1.0 的完全未使用付费充值包，可在支付成功后 7 个自然日内申请退款。\n- 赠送额度不属于付费充值金额，不能折算现金退款。\n- 已经使用过的付费充值包不适用完全未使用退款流程。\n- 退款申请提交成功不等于审核通过或款项到账。\n限制与排除：这只是虚构产品测试规则，不说明任何真实消费者法定权利或支付渠道政策。",
+      "product_version": "test-v1.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g12-refund-d2",
+      "title": "SupportLab 未使用充值退款｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：测试 v2.0 控制台直接购买、完全未使用的付费充值包；不适用于订阅。\n规则：\n- 测试 v2.0 的完全未使用付费充值包，可在支付成功后 14 个自然日内申请退款。\n- 付费充值包只要发生过使用，就不适用完全未使用退款流程。\n- 赠送额度不可折算现金，退款金额不包含赠送额度。\n- 超过 14 个自然日不适用本页自助申请规则，可以提交账单工单说明情况，但不保证批准。\n限制与排除：自然日包括周末；规则不适用于渠道购买，也不代表任何真实法律或合同。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    },
+    {
+      "document_id": "g12-refund-d3",
+      "title": "SupportLab 退款审核与到账｜测试 v2.0",
+      "content": "【原创虚构测试资料：被支持产品为 SupportLab，非 EchoMind 功能说明】本页只描述 SupportLab 服务的测试规则，不代表任何真实平台、客户或合同。测试版本：test-v2.0。\n适用范围：测试 v2.0 已提交的付费充值包退款申请；以下时效从审核通过后计算。\n规则：\n- 退款审核通过后，款项沿原支付渠道退回，预计 3 至 7 个工作日到账。\n- 预计到账时间不从提交申请时开始计算，待审核状态不代表已退款。\n- 退款进度应在订单详情查看，超过预计到账时间后联系账单支持并提供订单编号。\n- 账单支持不会要求用户提供支付密码、银行卡验证码或远程控制设备才能办理退款。\n限制与排除：公开文档不能确认某一笔退款的实际到账状态；不保证具体时刻入账。",
+      "product_version": "test-v2.0",
+      "knowledge_base_id": "supportlab-fixture-v1-1"
+    }
+  ]
+}

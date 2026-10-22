@@ -1,0 +1,33 @@
+{
+  "review_id": "ai-scenario-review-2026-10-22",
+  "records_reviewed": 312,
+  "documents_reviewed": 36,
+  "cases_reviewed": 276,
+  "human_verified_cases": 0,
+  "status": "ai_review_complete_independent_human_review_pending",
+  "counts_by_record_type": {
+    "document": 36,
+    "intent": 120,
+    "rag": 108,
+    "contract": 48
+  },
+  "issue_code_counts": {
+    "fair_conditional_answer": 12,
+    "legacy_scope_separation": 7,
+    "missing_precondition_or_evidence": 4,
+    "native_python_scope": 48,
+    "natural_history": 1,
+    "natural_support_language": 12,
+    "reference_product_runtime_separation": 36,
+    "retained_gold_known_router_gap": 13,
+    "shipment_stock_precondition": 2,
+    "specific_setup_and_oracle": 48,
+    "temporal_word_not_critical_urgency": 1,
+    "unsupported_queue_promise": 1
+  },
+  "limitations": [
+    "All records remain synthetic; no real customer logs or external product policies were verified.",
+    "No real model task-success run or business contract execution was performed.",
+    "Existing v1.0 baselines are historical snapshots; v1.1 results cannot establish system improvement."
+  ]
+}

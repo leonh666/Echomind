@@ -112,7 +112,9 @@ export async function requestChatStream(type, settings, message, onEvent, signal
     return requestChat(type, settings, message, signal)
   }
   if (!response.ok) {
-    throw new Error(`请求失败（${response.status}）：${await response.text()}`)
+    const error = new Error(`请求失败（${response.status}）：${await response.text()}`)
+    error.status = response.status
+    throw error
   }
   return normalizeChatResponse(type, await readChatStream(response, onEvent))
 }
@@ -173,6 +175,8 @@ function normalizeChatResponse(type, raw) {
     sources: raw.sources || [],
     tasks: raw.tasks || [],
     warnings: raw.warnings || [],
+    feedbackAvailable: Boolean(raw.feedback_available),
+    durationMs: Number(raw.duration_ms || 0),
     raw
   }
 }

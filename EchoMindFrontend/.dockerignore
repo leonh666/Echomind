@@ -6,5 +6,6 @@ dist/
 .DS_Store
 *.log
 .env
+.secrets/
 .env.*
 !.env.example

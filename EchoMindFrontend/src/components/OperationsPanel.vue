@@ -14,7 +14,7 @@
   </section>
   <section v-if="visible" class="page page-tickets">
     <div class="page-heading">
-      <div class="heading-copy"><span class="kicker">Support desk</span><h1>工单与待办</h1><p>核对草稿后提交，随时查看处理状态与历史记录。</p></div>
+      <div class="heading-copy"><span class="kicker">Support desk</span><h1>{{ canManage ? '组织工单与待办' : '我的工单与待办' }}</h1><p>{{ canManage ? '查看本组织工单、处理状态与操作记录。' : '仅展示当前账号自己的草稿与工单，核对后可确认提交。' }}</p></div>
       <button @click="handle(refresh)" :disabled="pending || !session">刷新</button>
     </div>
     <p v-if="!session" class="workspace-empty">登录后可创建、确认和查看自己的工单。</p>
@@ -31,7 +31,7 @@
           <p v-if="selected">状态：{{ statusLabel(selected.status) }} · 确认有效至 {{ date(selected.confirmation_expires_at) }}</p>
           <div class="side-actions">
             <button type="submit" :disabled="pending || (selected && selected.status !== 'waiting_confirmation')">{{ selected ? '保存修改' : '保存为待确认草稿' }}</button>
-            <button type="button" class="quiet-button" @click="newDraft">新建</button>
+            <button type="button" class="quiet-button" @click="newDraft" :disabled="pending">新建</button>
           </div>
         </form>
         <div v-if="selected?.status === 'waiting_confirmation'" class="confirmation-box">
@@ -42,11 +42,11 @@
           </div>
         </div>
         <p v-if="lastTicket" class="success" role="status">工单已创建：{{ lastTicket.id }}</p>
-        <details v-if="events.length"><summary>操作历史</summary><p v-for="event in events" :key="event.id">{{ date(event.created_at) }} · {{ event.event_type }}</p></details>
+        <details v-if="canReadAudit && events.length"><summary>操作历史</summary><p v-for="event in events" :key="event.id">{{ date(event.created_at) }} · {{ event.event_type }}</p></details>
       </section>
       <section class="workspace-card">
         <div class="card-heading"><h2>待办与草稿</h2><span>{{ taskList.length }}</span></div>
-        <button v-for="task in taskList" :key="task.id" class="task-row" @click="select(task)">
+        <button v-for="task in taskList" :key="task.id" class="task-row" @click="select(task)" :disabled="pending">
           <strong>{{ task.payload.title }}</strong><span>{{ statusLabel(task.status) }}</span><small>{{ date(task.updated_at) }}</small>
         </button>
         <p v-if="!taskList.length" class="workspace-empty">暂无任务。也可以在对话中请求创建工单。</p>
@@ -69,7 +69,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import * as api from '../lib/operations.js'
 const props = defineProps({ settings: { type: Object, required: true }, visible: Boolean, refreshKey: Number })
 const emit = defineEmits(['session-change', 'notice'])
@@ -81,59 +81,149 @@ function newKey() { return globalThis.crypto?.randomUUID?.() || `draft-${Date.no
 let createKey = newKey()
 const transitions = { open: ['in_progress', 'cancelled'], in_progress: ['resolved', 'cancelled'], resolved: ['closed', 'in_progress'] }
 const canManage = computed(() => ['support', 'admin'].includes(session.value?.role))
+const canReadAudit = computed(() => canManage.value)
+let generation = 0, refreshSequence = 0, selectionSequence = 0, pendingWork = 0
+const identity = value => value ? `${value.user_id || value.user?.id || ''}:${value.organization_id || ''}:${value.role || ''}` : ''
+function context() {
+  const currentGeneration = generation
+  return { current: () => currentGeneration === generation }
+}
 function canonical(value) { return JSON.stringify(value, Object.keys(value).sort()) }
 const dirty = computed(() => selected.value && (
   ['title', 'description', 'category', 'priority'].some(key => form[key] !== selected.value.payload[key]) ||
   canonical(form.metadata) !== canonical(selected.value.payload.metadata)))
 function statusLabel(value) { return ({ waiting_confirmation: '待确认', completed: '已提交', cancelled: '已取消', rejected: '已拒绝', expired: '已过期', open: '待受理', in_progress: '处理中', resolved: '已解决', closed: '已关闭' })[value] || value }
 function date(value) { return value ? new Date(value * 1000).toLocaleString() : '-' }
-function clear() { selected.value = null; events.value = []; lastTicket.value = null; Object.assign(form, blank()); createKey = newKey() }
+function clear() { selectionSequence += 1; selected.value = null; events.value = []; lastTicket.value = null; Object.assign(form, blank()); createKey = newKey() }
 function newDraft() { clear() }
-async function handle(work) {
-  error.value = ''; pending.value = true
-  try { return await work() } catch (failure) { error.value = failure.message; if (failure.status === 401) { session.value = null; taskList.value = []; ticketList.value = []; clear(); emit('session-change', null) } }
-  finally { pending.value = false }
+function clearPrivateState() {
+  generation += 1; refreshSequence += 1; pendingWork = 0; pending.value = false
+  taskList.value = []; ticketList.value = []; clear()
 }
-async function refresh() {
-  if (!session.value) return
+function setSession(value) {
+  if (identity(value) !== identity(session.value)) clearPrivateState()
+  session.value = value
+  emit('session-change', value)
+}
+function invalidateSession() {
+  clearPrivateState(); session.value = null; password.value = ''; email.value = ''; error.value = ''
+  emit('session-change', null)
+}
+defineExpose({ invalidateSession })
+
+async function recoverForbidden(message) {
+  // Re-read the server profile once after revocation; never retry the denied operation.
+  invalidateSession()
+  const recovery = context()
+  try {
+    const profile = await api.sessionInfo(props.settings)
+    if (!recovery.current()) return
+    setSession(profile); error.value = message
+  } catch {
+    if (recovery.current()) error.value = message
+  }
+}
+async function handle(work) {
+  const operation = context()
+  error.value = ''; pendingWork += 1; pending.value = true
+  try { return await work(operation) }
+  catch (failure) {
+    if (!operation.current()) return
+    if (failure.status === 401) { invalidateSession(); error.value = failure.message }
+    else if (failure.status === 403) await recoverForbidden(failure.message)
+    else error.value = failure.message || '操作失败，请稍后重试'
+  } finally {
+    if (operation.current()) { pendingWork -= 1; pending.value = pendingWork > 0 }
+  }
+}
+async function refresh(operation = context()) {
+  if (!session.value || !operation.current()) return
+  const sequence = ++refreshSequence
   const [taskData, ticketData] = await Promise.all([api.tasks(props.settings), api.tickets(props.settings)])
+  if (!operation.current() || sequence !== refreshSequence) return
   taskList.value = taskData.items; ticketList.value = ticketData.items
 }
 async function signIn() {
-  await handle(async () => {
-    const result = await api.login(props.settings, email.value, password.value)
-    password.value = ''; session.value = result
-    emit('session-change', result); clear(); await refresh()
+  const loginEmail = email.value, loginPassword = password.value
+  // Invalidate any mount-time session probe before starting a new login.
+  invalidateSession()
+  await handle(async operation => {
+    await api.login(props.settings, loginEmail, loginPassword)
+    if (!operation.current()) return
+    const profile = await api.sessionInfo(props.settings)
+    if (!operation.current()) return
+    setSession(profile)
+    if (props.visible) await handle(refresh)
   })
 }
 async function signOut() {
-  await handle(async () => { await api.logout(props.settings); session.value = null; taskList.value = []; ticketList.value = []; clear(); emit('session-change', null) })
+  // Clear personal data immediately, including responses still in flight.
+  invalidateSession()
+  await handle(async () => { await api.logout(props.settings) })
 }
 async function select(task) {
+  selectionSequence += 1; events.value = []
   selected.value = task; lastTicket.value = null
   Object.assign(form, JSON.parse(JSON.stringify(task.payload)))
-  await handle(async () => { events.value = (await api.taskEvents(props.settings, task)).items })
+  if (!canReadAudit.value) return
+  const sequence = selectionSequence
+  await handle(async operation => {
+    const result = await api.taskEvents(props.settings, task)
+    if (operation.current() && sequence === selectionSequence && canReadAudit.value) events.value = result.items
+  })
 }
 async function save() {
-  await handle(async () => {
+  await handle(async operation => {
     const payload = JSON.parse(JSON.stringify(form))
     const task = selected.value ? await api.reviseDraft(props.settings, selected.value, payload) : await api.createDraft(props.settings, payload, createKey)
+    if (!operation.current()) return
+    selectionSequence += 1; events.value = []
     selected.value = task; Object.assign(form, JSON.parse(JSON.stringify(task.payload)))
-    await refresh(); emit('notice', '草稿已保存，请核对后确认')
+    await refresh(operation)
+    if (operation.current()) emit('notice', '草稿已保存，请核对后确认')
   })
 }
 async function confirm() {
-  await handle(async () => {
+  if (!selected.value) return
+  await handle(async operation => {
     const result = await api.confirmDraft(props.settings, selected.value)
-    selected.value = result.task; lastTicket.value = result.ticket; await refresh()
-    events.value = (await api.taskEvents(props.settings, selected.value)).items
+    if (!operation.current()) return
+    const sequence = ++selectionSequence
+    selected.value = result.task; lastTicket.value = result.ticket; events.value = []
+    await refresh(operation)
+    if (!operation.current() || !canReadAudit.value || sequence !== selectionSequence) return
+    const history = await api.taskEvents(props.settings, result.task)
+    if (operation.current() && sequence === selectionSequence && canReadAudit.value) events.value = history.items
   })
 }
-async function cancel() { await handle(async () => { selected.value = await api.cancelTask(props.settings, selected.value); await refresh() }) }
-async function changeStatus(ticket, value) { await handle(async () => { await api.updateTicket(props.settings, ticket, value); await refresh() }) }
+async function cancel() {
+  if (!selected.value) return
+  await handle(async operation => {
+    const task = await api.cancelTask(props.settings, selected.value)
+    if (!operation.current()) return
+    selectionSequence += 1; selected.value = task; events.value = []
+    await refresh(operation)
+  })
+}
+async function changeStatus(ticket, value) {
+  await handle(async operation => {
+    await api.updateTicket(props.settings, ticket, value)
+    if (operation.current()) await refresh(operation)
+  })
+}
 onMounted(async () => {
-  try { session.value = await api.sessionInfo(props.settings); emit('session-change', session.value); await refresh() }
-  catch { session.value = null; emit('session-change', null) }
+  const restore = context()
+  try {
+    const profile = await api.sessionInfo(props.settings)
+    if (!restore.current()) return
+    setSession(profile)
+    if (props.visible) await handle(refresh)
+  } catch {
+    if (restore.current()) invalidateSession()
+  }
 })
-watch(() => [props.visible, props.refreshKey], () => { if (session.value) handle(refresh) })
+watch(() => [props.visible, props.refreshKey], () => {
+  if (props.visible && session.value && !pending.value) handle(refresh)
+})
+onBeforeUnmount(() => { generation += 1 })
 </script>
