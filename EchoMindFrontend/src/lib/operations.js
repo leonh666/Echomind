@@ -25,6 +25,9 @@ export const register = (settings, username, password) => call(settings, '/auth/
 export const logout = (settings) => call(settings, '/auth/logout', 'POST', {})
 export const tasks = (settings) => call(settings, '/tasks')
 export const tickets = (settings) => call(settings, '/tickets')
+export const feishuInfo = (settings) => call(settings, '/integrations/feishu')
+export const checkFeishu = (settings) => call(settings, '/integrations/feishu/check', 'POST', {})
+export const retryFeishu = (settings, ticket) => call(settings, `/tickets/${encodeURIComponent(ticket.id)}/feishu/retry`, 'POST', {})
 export const createDraft = (settings, payload, key) => call(settings, '/tasks', 'POST', { payload, idempotency_key: key })
 export const reviseDraft = (settings, task, payload) => call(settings, `/tasks/${encodeURIComponent(task.id)}/draft`, 'PUT', { revision: task.revision, payload })
 export const confirmDraft = (settings, task) => call(settings, `/tasks/${encodeURIComponent(task.id)}/confirm`, 'POST', {

@@ -1,9 +1,24 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { login, confirmDraft, reviseDraft, createDraft } from '../src/lib/operations.js'
+import { login, confirmDraft, reviseDraft, createDraft, feishuInfo, checkFeishu, retryFeishu } from '../src/lib/operations.js'
 import { requestSearch, requestChat } from '../src/lib/backends.js'
 
 const settings = { endpoints: { python: '/api/python' } }
+
+test('Feishu requests use the session and server configured destination', async context => {
+  const requests = []
+  context.mock.method(globalThis, 'fetch', async (url, options) => {
+    requests.push([url, options.method, options.body])
+    assert.equal(options.credentials, 'include')
+    return Response.json({ enabled: true })
+  })
+  await feishuInfo(settings); await checkFeishu(settings); await retryFeishu(settings, { id: 'ticket/1', app_token: 'forged' })
+  assert.deepEqual(requests, [
+    ['/api/python/integrations/feishu', 'GET', undefined],
+    ['/api/python/integrations/feishu/check', 'POST', '{}'],
+    ['/api/python/tickets/ticket%2F1/feishu/retry', 'POST', '{}']
+  ])
+})
 
 test('confirmation sends the exact saved revision, hash and idempotency key with session cookie', async context => {
   context.mock.method(globalThis, 'fetch', async (url, options) => {

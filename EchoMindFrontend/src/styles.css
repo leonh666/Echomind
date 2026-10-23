@@ -1528,3 +1528,10 @@ summary { cursor: pointer; }
 .debug-details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 .debug-details dd { overflow-wrap: anywhere; }
 .handling-note { font-size: 12px; line-height: 1.7; border-left: 3px solid var(--accent); padding: 8px 12px; background: var(--accent-soft); border-radius: 4px; }
+.feishu-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-bottom: 20px; }
+.feishu-banner > div { flex: 1 1 260px; min-width: 0; }
+.feishu-banner p { margin: 6px 0; }
+.feishu-banner small, .feishu-state { color: var(--muted); line-height: 1.6; }
+.feishu-banner .connection-feedback { flex-basis: 100%; }
+.ticket-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
+.ticket-actions small { max-width: 270px; overflow-wrap: anywhere; }

@@ -97,16 +97,21 @@ async def lifespan(app: FastAPI):
     from business.store import BusinessStore
     from business.auth import AuthService
     from agents.tools import build_business_tools
+    from integrations.feishu import FeishuConfig, FeishuService
 
+    feishu_config = FeishuConfig.from_env()
     store = BusinessStore(
         os.getenv("ECHOMIND_BUSINESS_DB_PATH", str(pathlib.Path(_ROOT) / "data/business/echomind.sqlite3")),
         confirmation_ttl_seconds=int(os.getenv("ECHOMIND_CONFIRMATION_TTL", "900")),
+        feishu_target=feishu_config.target,
     )
+    feishu = FeishuService(store, feishu_config)
     operations.configure(operations.Runtime(
         store=store, auth=AuthService(store),
         auth_required=os.getenv("ECHOMIND_AUTH_REQUIRED", "true").lower() != "false",
         secure_cookies=os.getenv("ECHOMIND_SECURE_COOKIES", "false").lower() == "true",
         evaluator=lambda: _evaluator,
+        feishu=feishu,
     ))
     _chat_slots = asyncio.Semaphore(max(1, int(os.getenv("ECHOMIND_MAX_CONCURRENT_CHATS", "8"))))
 
@@ -215,7 +220,11 @@ async def lifespan(app: FastAPI):
     )
 
     logger.info("EchoMind 已就绪")
-    yield
+    feishu.start()
+    try:
+        yield
+    finally:
+        await feishu.close()
 
     await _monitor.stop()
     for task in list(_background_tasks):

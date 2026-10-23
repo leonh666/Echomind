@@ -25,6 +25,7 @@ class Runtime:
     auth_required: bool = True
     secure_cookies: bool = False
     evaluator: Optional[Callable] = None
+    feishu: Any = None
 
 
 def configure(runtime):
@@ -307,8 +308,13 @@ async def revise_task(task_id: str, body: DraftRevise, request: Request):
 
 @router.post("/tasks/{task_id}/confirm", tags=["工单任务"])
 async def confirm_task(task_id: str, body: DraftConfirm, request: Request):
-    return await asyncio.to_thread(runtime().store.confirm_draft, principal(request), task_id,
-                                   body.revision, body.payload_hash, body.idempotency_key)
+    rt, actor = runtime(), principal(request)
+    result = await asyncio.to_thread(rt.store.confirm_draft, actor, task_id,
+                                     body.revision, body.payload_hash, body.idempotency_key)
+    if rt.feishu:
+        result['ticket'] = (await asyncio.to_thread(rt.feishu.annotate, actor, [result['ticket']]))[0]
+        rt.feishu.wake.set()
+    return result
 
 
 @router.post("/tasks/{task_id}/cancel", tags=["工单任务"])
@@ -323,7 +329,11 @@ async def reject_task(task_id: str, body: Cancel, request: Request):
 
 @router.get("/tickets", tags=["工单"])
 async def list_tickets(request: Request, limit: int = 50):
-    return {"items": await asyncio.to_thread(runtime().store.list_tickets, principal(request), limit)}
+    rt, actor = runtime(), principal(request)
+    items = await asyncio.to_thread(rt.store.list_tickets, actor, limit)
+    if rt.feishu:
+        items = await asyncio.to_thread(rt.feishu.annotate, actor, items)
+    return {"items": items}
 
 
 @router.get("/tasks/{task_id}/events", tags=["工单任务"])
@@ -340,7 +350,40 @@ async def ticket_events(ticket_id: str, request: Request):
 
 @router.get("/tickets/{ticket_id}", tags=["工单"])
 async def get_ticket(ticket_id: str, request: Request):
-    return await asyncio.to_thread(runtime().store.get_ticket, principal(request), ticket_id)
+    rt, actor = runtime(), principal(request)
+    ticket = await asyncio.to_thread(rt.store.get_ticket, actor, ticket_id)
+    return (await asyncio.to_thread(rt.feishu.annotate, actor, [ticket]))[0] if rt.feishu else ticket
+
+
+@router.get('/integrations/feishu', tags=['飞书工单'])
+async def feishu_info(request: Request):
+    rt, actor = runtime(), principal(request)
+    return rt.feishu.info(actor) if rt.feishu else {'enabled': False, 'message': '当前组织未启用飞书工单同步'}
+
+
+@router.post('/integrations/feishu/check', tags=['飞书工单'])
+async def check_feishu(request: Request):
+    from business.store import BusinessError
+    from integrations.feishu import FeishuError
+    rt, actor = runtime(), require_role(request, 'admin', 'support')
+    if not rt.feishu or not rt.feishu.info(actor)['enabled']:
+        raise BusinessError('feishu_disabled', '当前组织尚未启用飞书工单同步', 409)
+    try:
+        return await rt.feishu.client.check()
+    except FeishuError as exc:
+        raise BusinessError(exc.code, str(exc), 502) from None
+
+
+@router.post('/tickets/{ticket_id}/feishu/retry', tags=['飞书工单'])
+async def retry_feishu(ticket_id: str, request: Request):
+    from business.store import BusinessError
+    rt, actor = runtime(), require_role(request, 'admin', 'support')
+    if not rt.feishu:
+        raise BusinessError('feishu_disabled', '当前组织尚未启用飞书工单同步', 409)
+    await asyncio.to_thread(rt.feishu.deliveries.retry, actor, ticket_id)
+    rt.feishu.wake.set()
+    ticket = await asyncio.to_thread(rt.store.get_ticket, actor, ticket_id)
+    return (await asyncio.to_thread(rt.feishu.annotate, actor, [ticket]))[0]
 
 
 @router.patch("/tickets/{ticket_id}", tags=["工单"])

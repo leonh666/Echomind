@@ -136,7 +136,7 @@ PRAGMA user_version=1;
 
 class BusinessStore:
     def __init__(self, db_path: str | Path, confirmation_ttl_seconds: int = 900,
-                 now: Callable[[], float] = time.time):
+                 now: Callable[[], float] = time.time, feishu_target: dict[str, str] | None = None):
         if str(db_path) == ":memory:":
             raise ValueError("Use a persistent file path; per-operation connections cannot share :memory:")
         if confirmation_ttl_seconds <= 0:
@@ -145,6 +145,7 @@ class BusinessStore:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.confirmation_ttl_seconds = confirmation_ttl_seconds
         self.now = now
+        self.feishu_target = dict(feishu_target) if feishu_target else None
         conn = self._connect()
         try:
             conn.execute("PRAGMA journal_mode=WAL")
@@ -154,6 +155,8 @@ class BusinessStore:
             conn.executescript(SCHEMA)
             from business.insights import SCHEMA as INSIGHT_SCHEMA
             conn.executescript(INSIGHT_SCHEMA)
+            from business.feishu_delivery import SCHEMA as FEISHU_SCHEMA
+            conn.executescript(FEISHU_SCHEMA)
             # Additive migration: preserve IDs, passwords, memberships and sessions.
             from business.auth import migrate_usernames
             conn.execute("BEGIN IMMEDIATE")
@@ -381,6 +384,9 @@ class BusinessStore:
                 conn.execute("UPDATE tasks SET status='completed',ticket_id=?,updated_at=? WHERE id=?", (ticket_id, timestamp, task_id))
                 self._event(conn, actor, "draft.confirmed", task_id=task_id, ticket_id=ticket_id, revision=revision, payload_hash=payload_hash)
                 self._event(conn, actor, "ticket.created", task_id=task_id, ticket_id=ticket_id, version=1)
+                from business.feishu_delivery import enqueue
+                enqueue(conn, conn.execute("SELECT * FROM tickets WHERE id=?", (ticket_id,)).fetchone(),
+                        self.feishu_target, timestamp)
                 result = {"task": self._task(conn.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()),
                           "ticket": self._ticket(conn.execute("SELECT * FROM tickets WHERE id=?", (ticket_id,)).fetchone()), "replayed": False}
                 self._operation(conn, actor, key, "draft.confirm", fingerprint, result)

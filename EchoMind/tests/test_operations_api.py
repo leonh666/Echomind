@@ -70,6 +70,34 @@ def test_ticket_confirmation_rejects_old_revision_and_other_org(service):
     assert client.post("/eval/run", headers=own).status_code == 403
 
 
+def test_feishu_confirmation_is_queued_without_network_and_scope_is_enforced(service):
+    from integrations.feishu import FeishuConfig, FeishuService
+    client, store, owner, _, _, headers = service
+    config = FeishuConfig(True, owner['organization_id'], 'cli_test', 'secret-test', 'bas_test', 'tbl_test')
+    store.feishu_target = config.target
+    remote = SimpleNamespace(deliver=AsyncMock(return_value='rec_test'), check=AsyncMock(return_value={'ok': True}))
+    integration = FeishuService(store, config, remote)
+    operations.runtime().feishu = integration
+    own = headers('customer')
+    assert client.get('/integrations/feishu', headers=own).json()['enabled']
+    assert not client.get('/integrations/feishu', headers=headers('other')).json()['enabled']
+    draft = client.post('/tasks', json={'payload': {'title': '需要核查', 'description': '退款未到账'}}, headers=own).json()
+    result = client.post(f"/tasks/{draft['id']}/confirm", json={key: draft[key] for key in ('revision', 'payload_hash', 'idempotency_key')}, headers=own).json()
+    ticket = result['ticket']
+    assert ticket['feishu_sync']['status'] == 'queued'
+    remote.deliver.assert_not_called()
+    assert client.get('/tickets', headers=own).json()['items'][0]['feishu_sync']['status'] == 'queued'
+    assert client.post(f"/tickets/{ticket['id']}/feishu/retry", headers=own).status_code == 403
+    assert client.post(f"/tickets/{ticket['id']}/feishu/retry", headers=headers('other')).status_code == 404
+    assert client.post('/integrations/feishu/check', headers=own).status_code == 403
+    assert client.post('/integrations/feishu/check', headers=headers('other')).status_code == 409
+    assert client.post('/integrations/feishu/check', headers=headers('owner')).status_code == 200
+    job = integration.deliveries.claim()
+    integration.deliveries.finish(job, error_code='http_403')
+    assert client.post(f"/tickets/{ticket['id']}/feishu/retry", headers=headers('owner')).json()['feishu_sync']['status'] == 'queued'
+    assert 'secret-test' not in client.get('/tickets', headers=own).text
+
+
 def test_knowledge_scope_cannot_be_forged_by_body_or_document_id(service, monkeypatch):
     client, _, owner, _, other, headers = service
     kb = KnowledgeBase.__new__(KnowledgeBase)

@@ -21,7 +21,12 @@
       <button @click="handle(refresh)" :disabled="pending || !session">刷新</button>
     </div>
     <p v-if="!session" class="workspace-empty">登录后可创建、确认和查看自己的工单。</p>
-    <div v-else class="operations-grid">
+    <section v-if="session && feishu" class="workspace-card feishu-banner" aria-label="飞书工单同步">
+      <div><strong>飞书人工处理</strong><p>{{ feishu.message }}</p><small v-if="feishu.enabled">工单确认后自动写入飞书，通常数秒内完成。飞书中的处理状态和备注目前由人工维护，暂不回写本页。</small></div>
+      <button v-if="canManage && feishu.enabled" class="quiet-button" @click="checkFeishu" :disabled="pending">检查飞书配置</button>
+      <p v-if="feishuNotice" class="connection-feedback" role="status">{{ feishuNotice }}</p>
+    </section>
+    <div v-if="session" class="operations-grid">
       <section class="workspace-card">
         <div class="card-heading"><h2>{{ selected ? '核对工单草稿' : '新建工单草稿' }}</h2><span v-if="selected">第 {{ selected.revision }} 版</span></div>
         <form @submit.prevent="save">
@@ -38,7 +43,8 @@
           </div>
         </form>
         <div v-if="selected?.status === 'waiting_confirmation'" class="confirmation-box">
-          <p>{{ dirty ? '内容已修改，请先保存新版本，再确认提交。' : '确认后会创建工单，并返回可查询的工单编号。' }}</p>
+          <p>{{ dirty ? '内容已修改，请先保存新版本，再确认提交。' : feishu?.enabled ? '确认后将创建工单，并将下方说明中的问题资料同步到飞书，交由人工处理。' : '确认后会创建工单，并返回可查询的工单编号。' }}</p>
+          <small v-if="feishu?.enabled">同步内容：工单编号、标题、问题描述、分类、优先级和创建时间。请先删除描述中不必要的密码、验证码或支付凭证。</small>
           <div class="side-actions">
             <button @click="confirm" :disabled="pending || dirty">确认提交工单</button>
             <button class="quiet-button" @click="cancel" :disabled="pending">取消草稿</button>
@@ -58,7 +64,10 @@
         <div class="card-heading"><h2>已提交工单</h2><span>{{ ticketList.length }}</span></div>
         <article v-for="ticket in ticketList" :key="ticket.id" class="ticket-row">
           <div><strong>{{ ticket.title }}</strong><small>{{ ticket.id }}</small><p>{{ ticket.description }}</p></div>
-          <div><span>{{ statusLabel(ticket.status) }}</span>
+          <div class="ticket-actions"><span>{{ statusLabel(ticket.status) }}</span>
+            <small v-if="ticket.feishu_sync" :class="['feishu-state', { danger: ticket.feishu_sync.status === 'failed' }]">{{ feishuStatus(ticket.feishu_sync.status) }}</small>
+            <small v-if="ticket.feishu_sync?.status === 'failed'">{{ ticket.feishu_sync.error_code === 'ticket_not_active' ? '工单已关闭或取消，停止同步。' : canManage ? '请检查飞书配置后重试，工单内容仍已保存。' : '工单已保存，飞书同步异常，等待客服处理。' }}</small>
+            <button v-if="canManage && feishu?.enabled && !['closed', 'cancelled'].includes(ticket.status) && ['failed', 'not_queued'].includes(ticket.feishu_sync?.status)" class="quiet-button" @click="retryFeishu(ticket)" :disabled="pending">{{ ticket.feishu_sync.status === 'not_queued' ? '同步至飞书' : '重试飞书同步' }}</button>
             <select v-if="canManage" :value="ticket.status" @change="changeStatus(ticket, $event.target.value)" :disabled="pending">
               <option :value="ticket.status">{{ statusLabel(ticket.status) }}</option>
               <option v-for="next in transitions[ticket.status] || []" :key="next" :value="next">{{ statusLabel(next) }}</option>
@@ -79,6 +88,7 @@ const emit = defineEmits(['session-change', 'notice'])
 const session = ref(null), username = ref(''), password = ref(''), error = ref(''), pending = ref(false)
 const registerMode = ref(false), confirmPassword = ref('')
 const taskList = ref([]), ticketList = ref([]), selected = ref(null), events = ref([]), lastTicket = ref(null)
+const feishu = ref(null), feishuNotice = ref('')
 const blank = () => ({ title: '', description: '', category: 'technical', priority: 'normal', metadata: {} })
 const form = reactive(blank())
 function newKey() { return globalThis.crypto?.randomUUID?.() || `draft-${Date.now()}-${Math.random().toString(36).slice(2)}` }
@@ -97,12 +107,14 @@ const dirty = computed(() => selected.value && (
   ['title', 'description', 'category', 'priority'].some(key => form[key] !== selected.value.payload[key]) ||
   canonical(form.metadata) !== canonical(selected.value.payload.metadata)))
 function statusLabel(value) { return ({ waiting_confirmation: '待确认', completed: '已提交', cancelled: '已取消', rejected: '已拒绝', expired: '已过期', open: '待受理', in_progress: '处理中', resolved: '已解决', closed: '已关闭' })[value] || value }
+function feishuStatus(value) { return ({ queued: '等待同步至飞书', sending: '正在同步至飞书', delivered: '已交至飞书人工处理', failed: '飞书同步失败', disabled: '未启用飞书同步', not_queued: '尚未同步至飞书', target_changed: '飞书同步已暂停，请联系管理员' })[value] || '同步状态待确认' }
 function date(value) { return value ? new Date(value * 1000).toLocaleString() : '-' }
 function clear() { selectionSequence += 1; selected.value = null; events.value = []; lastTicket.value = null; Object.assign(form, blank()); createKey = newKey() }
 function newDraft() { clear() }
 function clearPrivateState() {
   generation += 1; refreshSequence += 1; pendingWork = 0; pending.value = false
   taskList.value = []; ticketList.value = []; clear()
+  feishu.value = null; feishuNotice.value = ''
 }
 function setSession(value) {
   if (identity(value) !== identity(session.value)) clearPrivateState()
@@ -146,6 +158,8 @@ async function refresh(operation = context()) {
   const [taskData, ticketData] = await Promise.all([api.tasks(props.settings), api.tickets(props.settings)])
   if (!operation.current() || sequence !== refreshSequence) return
   taskList.value = taskData.items; ticketList.value = ticketData.items
+  const integration = await api.feishuInfo(props.settings)
+  if (operation.current() && sequence === refreshSequence) feishu.value = integration
 }
 function toggleAuth() {
   if (pending.value) return
@@ -234,6 +248,25 @@ async function changeStatus(ticket, value) {
   await handle(async operation => {
     await api.updateTicket(props.settings, ticket, value)
     if (operation.current()) await refresh(operation)
+  })
+}
+async function checkFeishu() {
+  await handle(async operation => {
+    feishuNotice.value = '正在检查应用授权和工单字段…'
+    try {
+      const result = await api.checkFeishu(props.settings)
+      if (operation.current()) feishuNotice.value = result.message
+    } finally {
+      if (operation.current() && feishuNotice.value === '正在检查应用授权和工单字段…') feishuNotice.value = ''
+    }
+  })
+}
+async function retryFeishu(ticket) {
+  await handle(async operation => {
+    await api.retryFeishu(props.settings, ticket)
+    if (!operation.current()) return
+    await refresh(operation)
+    if (operation.current()) emit('notice', '已核对工单同步状态；可刷新查看飞书处理队列')
   })
 }
 onMounted(async () => {
