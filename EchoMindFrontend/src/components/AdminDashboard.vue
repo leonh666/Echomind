@@ -1,7 +1,7 @@
 <template>
   <section class="page page-admin">
     <div class="page-heading">
-      <div class="heading-copy"><span class="kicker">Organization administration</span><h1>组织后台</h1><p>查看本组织的用户、操作记录、会话与工单。</p></div>
+      <div class="heading-copy"><span class="kicker">管理工作台</span><h1>管理后台</h1><p>查看全站用户账号；业务记录按当前组织展示。</p></div>
       <button v-if="admin" @click="refresh" :disabled="loading[activeTab]">{{ loading[activeTab] ? '加载中…' : '刷新当前页面' }}</button>
     </div>
     <section v-if="!admin || accessError" class="workspace-card" role="alert">
@@ -13,19 +13,19 @@
         <button v-for="tab in tabs" :key="tab.id" :class="{ active: activeTab === tab.id }" :aria-pressed="activeTab === tab.id" @click="activeTab = tab.id">{{ tab.label }}</button>
       </nav>
       <p v-if="errors[activeTab]" class="danger" role="alert">{{ errors[activeTab] }}</p>
-      <p v-if="loading[activeTab]" class="muted" role="status">正在加载本组织数据…</p>
+      <p v-if="loading[activeTab]" class="muted" role="status">正在加载数据…</p>
 
       <div v-if="activeTab === 'overview' && overview" class="admin-overview">
         <section class="admin-counts">
-          <article v-for="metric in countLabels" :key="metric.id" class="workspace-card"><span>{{ metric.label }}</span><strong>{{ overview.counts[metric.id] }}</strong></article>
+          <article v-for="metric in countLabels" :key="metric.id" class="workspace-card"><span>{{ metric.label }}</span><strong>{{ overview.counts[metric.id] }}</strong><small class="muted">{{ metric.id === 'users' && overview.user_scope === 'system' ? '全站账号，按用户去重' : '当前组织' }}</small></article>
         </section>
         <section class="workspace-card"><h2>任务状态</h2><div class="status-counts"><span v-for="(count, status) in overview.task_status" :key="status">{{ statusLabel(status) }} <strong>{{ count }}</strong></span></div><p v-if="!Object.keys(overview.task_status).length" class="muted">还没有任务。保存工单草稿后，可以在这里跟进确认进度。</p></section>
         <section class="workspace-card"><h2>工单状态</h2><div class="status-counts"><span v-for="(count, status) in overview.ticket_status" :key="status">{{ statusLabel(status) }} <strong>{{ count }}</strong></span></div><p v-if="!Object.keys(overview.ticket_status).length" class="muted">还没有已提交的工单。确认草稿后，处理状态会显示在这里。</p></section>
       </div>
 
       <section v-if="activeTab === 'users'" class="workspace-card">
-        <h2>本组织用户</h2>
-        <div class="admin-table-wrap"><table><thead><tr><th>姓名 / 用户编号</th><th>邮箱</th><th>角色</th><th>创建时间</th></tr></thead><tbody><tr v-for="user in pages.users.items" :key="user.id"><td>{{ user.display_name || '未命名用户' }}<small>{{ user.id }}</small></td><td>{{ user.email || '-' }}</td><td>{{ roleLabel(user.role) }}</td><td>{{ date(user.created_at) }}</td></tr></tbody></table></div>
+        <div class="card-heading"><h2>全部用户</h2><span>共 {{ pages.users.total }} 个账号</span></div><p class="muted">包含所有组织和自助注册的账号；同一个账号只显示一次。</p>
+        <div class="admin-table-wrap"><table><thead><tr><th>用户名</th><th>显示名称</th><th>所属组织与角色</th><th>创建时间</th></tr></thead><tbody><tr v-for="user in pages.users.items" :key="user.id"><td>{{ user.username || '-' }}</td><td>{{ user.display_name || '未命名用户' }}</td><td><div v-for="membership in user.memberships" :key="membership.organization_id" class="user-membership"><span>{{ membership.organization_name || membership.organization_id }}</span><span class="account-role">{{ roleLabel(membership.role) }}</span></div><span v-if="!user.memberships.length" class="muted">未分配组织</span></td><td>{{ date(user.created_at) }}</td></tr></tbody></table></div>
         <p v-if="!loading.users && !pages.users.items.length" class="workspace-empty">本页没有用户。</p>
       </section>
       <section v-if="activeTab === 'activity'" class="workspace-card">
@@ -64,8 +64,8 @@ import { fetchAdminOverview, fetchAdminUsers, fetchAdminActivity, fetchAdminConv
 
 const props = defineProps({ settings: { type: Object, required: true }, session: { type: Object, default: null } })
 const emit = defineEmits(['notice', 'session-expired'])
-const tabs = [{ id: 'overview', label: '总览' }, { id: 'users', label: '用户' }, { id: 'activity', label: '审计记录' }, { id: 'conversations', label: '会话索引' }, { id: 'tickets', label: '全部工单' }, { id: 'tasks', label: '全部任务' }]
-const countLabels = [{ id: 'users', label: '用户' }, { id: 'tasks', label: '任务' }, { id: 'tickets', label: '工单' }, { id: 'events', label: '操作记录' }, { id: 'conversations', label: '会话' }, { id: 'requests', label: '请求' }]
+const tabs = [{ id: 'overview', label: '总览' }, { id: 'users', label: '全部用户' }, { id: 'activity', label: '审计记录' }, { id: 'conversations', label: '会话索引' }, { id: 'tickets', label: '全部工单' }, { id: 'tasks', label: '全部任务' }]
+const countLabels = [{ id: 'users', label: '全部用户' }, { id: 'tasks', label: '任务' }, { id: 'tickets', label: '工单' }, { id: 'events', label: '操作记录' }, { id: 'conversations', label: '会话' }, { id: 'requests', label: '请求' }]
 const activeTab = ref('overview'), overview = ref(null), accessError = ref(null)
 const emptyPage = () => ({ items: [], total: 0, limit: 20, offset: 0 })
 const pages = reactive({ users: emptyPage(), activity: emptyPage(), conversations: emptyPage(), tickets: emptyPage(), tasks: emptyPage() })

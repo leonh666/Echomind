@@ -1,4 +1,4 @@
-"""Organization-scoped, read-only administrative projections of business state.
+"""System-wide account directory and organization-scoped business projections.
 
 The caller supplies a server-authenticated Principal. Every method revalidates the
 current membership in the same transaction as its reads; a stale/forged admin role
@@ -43,7 +43,7 @@ class AdminService:
             self._require_admin(conn, actor)
             organization_id = actor.organization_id
             counts = {
-                "users": conn.execute("SELECT COUNT(*) FROM memberships WHERE organization_id=?", (organization_id,)).fetchone()[0]
+                "users": conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
             }
             # Table names are a closed, local mapping; organization is always bound.
             for label, table in (("tasks", "tasks"), ("tickets", "tickets"), ("events", "events"),
@@ -61,21 +61,34 @@ class AdminService:
                     (organization_id,),
                 )
             }
-            return {"organization_id": organization_id, "counts": counts,
+            return {"organization_id": organization_id, "user_scope": "system", "counts": counts,
                     "task_status": task_status, "ticket_status": ticket_status}
 
     def users(self, actor: Principal, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Admins may read all account profiles; this grants no business-data access."""
         with self.store._transaction() as conn:
             self._require_admin(conn, actor)
             self._pagination(limit, offset)
-            total = conn.execute("SELECT COUNT(*) FROM memberships WHERE organization_id=?", (actor.organization_id,)).fetchone()[0]
+            total = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
             rows = conn.execute(
-                "SELECT u.id,u.email,u.display_name,m.role,u.created_at "
-                "FROM users u JOIN memberships m ON m.user_id=u.id "
-                "WHERE m.organization_id=? ORDER BY u.created_at DESC,u.id ASC LIMIT ? OFFSET ?",
-                (actor.organization_id, limit, offset),
+                "SELECT id,username,email,display_name,created_at FROM users "
+                "ORDER BY created_at DESC,id ASC LIMIT ? OFFSET ?", (limit, offset),
             ).fetchall()
-            return self._page([dict(row) for row in rows], total, limit, offset)
+            items = [{**dict(row), "memberships": []} for row in rows]
+            by_id = {item["id"]: item for item in items}
+            if items:
+                placeholders = ",".join("?" for _ in items)
+                memberships = conn.execute(
+                    "SELECT m.user_id,m.organization_id,o.name AS organization_name,m.role "
+                    "FROM memberships m JOIN organizations o ON o.id=m.organization_id "
+                    f"WHERE m.user_id IN ({placeholders}) ORDER BY m.user_id,m.organization_id",
+                    list(by_id),
+                ).fetchall()
+                for membership in memberships:
+                    by_id[membership["user_id"]]["memberships"].append({
+                        key: membership[key] for key in ("organization_id", "organization_name", "role")
+                    })
+            return self._page(items, total, limit, offset)
 
     def activity(self, actor: Principal, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         with self.store._transaction() as conn:

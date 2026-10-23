@@ -1523,6 +1523,7 @@ summary { cursor: pointer; }
 .connection-data { display: flex; flex-wrap: wrap; gap: 10px 20px; padding: 12px 0; border-top: 1px solid var(--line); }
 .connection-data span { color: var(--muted); font-size: 12px; }
 .connection-data strong { color: var(--text); margin-left: 4px; }
+.user-membership { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
 .debug-details { border-top: 1px solid var(--line); padding-top: 12px; }
 .debug-details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 .debug-details dd { overflow-wrap: anywhere; }

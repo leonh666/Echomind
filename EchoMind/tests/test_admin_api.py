@@ -132,7 +132,7 @@ def test_customer_sees_only_own_tasks_tickets_and_no_audit_history(admin_api):
 
 
 @pytest.mark.parametrize("collection", ADMIN_LISTS)
-def test_admin_lists_paginate_all_own_org_data_and_exclude_foreign_org(admin_api, collection):
+def test_admin_lists_paginate_global_accounts_and_org_business(admin_api, collection):
     client, headers = admin_api.client, admin_api.headers["admin-a"]
     full_response = client.get("/admin/" + collection, params={"limit": 100}, headers=headers)
     assert full_response.status_code == 200, full_response.text
@@ -143,20 +143,22 @@ def test_admin_lists_paginate_all_own_org_data_and_exclude_foreign_org(admin_api
     assert first == {"items": full["items"][:1], "total": full["total"], "limit": 1, "offset": 0}
     assert second == {"items": full["items"][1:2], "total": full["total"], "limit": 1, "offset": 1}
     serialized = json.dumps(full)
-    assert "foreign" not in serialized and "admin-b" not in serialized
+    if collection != "users":
+        assert "foreign" not in serialized and "admin-b" not in serialized
     if collection == "users":
-        assert full["total"] == 5
-        assert all(set(item) == {"id", "email", "display_name", "role", "created_at"} for item in full["items"])
+        assert full["total"] == 7
+        assert {item["id"] for item in full["items"]} == {"admin-a", "alice", "bob", "support", "kb", "admin-b", "foreign"}
+        assert all(set(item) == {"id", "username", "email", "display_name", "memberships", "created_at"} for item in full["items"])
     if collection in ("tasks", "tickets"):
         assert {item["created_by"] for item in full["items"]} == {"alice", "bob"}
 
 
-def test_overview_counts_the_whole_current_organization_only(admin_api):
+def test_overview_counts_global_users_and_current_organization_business(admin_api):
     response = admin_api.client.get("/admin/overview?organization_id=b", headers=admin_api.headers["admin-a"])
     assert response.status_code == 200
     data = response.json()
-    assert data["organization_id"] == "a"
-    assert data["counts"] == {"users": 5, "tasks": 2, "tickets": 2, "events": 6, "conversations": 2, "requests": 2}
+    assert data["organization_id"] == "a" and data["user_scope"] == "system"
+    assert data["counts"] == {"users": 7, "tasks": 2, "tickets": 2, "events": 6, "conversations": 2, "requests": 2}
     assert data["task_status"] == {"completed": 2}
     foreign = admin_api.client.get("/admin/overview", headers=admin_api.headers["admin-b"]).json()
     assert foreign["organization_id"] == "b" and foreign["counts"]["tickets"] == 1

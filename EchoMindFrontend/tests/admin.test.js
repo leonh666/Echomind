@@ -29,7 +29,7 @@ test('users pagination sends limit and offset with HttpOnly session credentials 
     return Response.json(page([{ id: 'u1', email: 'u@example.invalid', role: 'customer', password_hash: 'secret', token: 'secret' }], { total: 125, limit: 50, offset: 100 }))
   })
   const result = await fetchAdminUsers(settings, admin, { limit: 50, offset: 100, signal: controller.signal })
-  assert.deepEqual(result, { items: [{ id: 'u1', email: 'u@example.invalid', role: 'customer' }], total: 125, limit: 50, offset: 100 })
+  assert.deepEqual(result, { items: [{ id: 'u1', email: 'u@example.invalid', memberships: [] }], total: 125, limit: 50, offset: 100 })
 })
 
 test('invalid pagination is rejected locally instead of sending bad or unbounded requests', async context => {
@@ -67,6 +67,26 @@ test('overview counts and status maps are allowlisted rather than exposing arbit
   assert.deepEqual(result.ticket_status, { open: 1 })
   assert.equal(result.counts.requests, 10)
   assert.equal(JSON.stringify(result).includes('secret'), false)
+})
+
+test('global user directory retains usernames and safe per-organization memberships', async context => {
+  context.mock.method(globalThis, 'fetch', async () => Response.json(page([{
+    id: 'u1', username: 'alice', display_name: 'Alice', created_at: 1, password_hash: 'private',
+    memberships: [{ organization_id: 'self-service', organization_name: '客户工作区', role: 'customer', token: 'private' },
+      { organization_id: 'org2', organization_name: '店铺2', role: 'support', password: 'private' }]
+  }])))
+  const result = await fetchAdminUsers(settings, admin)
+  assert.equal(result.items[0].username, 'alice')
+  assert.equal(result.items[0].memberships.length, 2)
+  assert.deepEqual(result.items[0].memberships[0], { organization_id: 'self-service', organization_name: '客户工作区', role: 'customer' })
+  assert.equal(JSON.stringify(result).includes('private'), false)
+})
+
+test('malformed membership data is rejected rather than rendered as profile fields', async context => {
+  for (const memberships of ['admin', [{ organization_id: { unsafe: true } }]]) {
+    context.mock.method(globalThis, 'fetch', async () => Response.json(page([{ id: 'u1', memberships }])))
+    await assert.rejects(fetchAdminUsers(settings, admin), e => e.status === 502)
+  }
 })
 
 test('audits retain useful status details and exclude secret and arbitrary nested payloads', async context => {

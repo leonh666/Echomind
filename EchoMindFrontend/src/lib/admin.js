@@ -73,7 +73,12 @@ async function page(settings, session, path, normalize, options = {}) {
   return { items: data.items.map(normalize), total: data.total, limit: data.limit, offset: data.offset }
 }
 
-const user = value => scalarFields(value, ['id', 'email', 'display_name', 'role', 'created_at'])
+function user(value) {
+  const result = scalarFields(value, ['id', 'username', 'email', 'display_name', 'created_at'])
+  if (value.memberships !== undefined && !Array.isArray(value.memberships)) return failShape()
+  result.memberships = (value.memberships || []).map(item => scalarFields(item, ['organization_id', 'organization_name', 'role']))
+  return result
+}
 const conversation = value => scalarFields(value, ['conversation_id', 'owner_id', 'owner_display_name', 'created_at', 'request_count'])
 const detailFields = ['status', 'from_status', 'to_status', 'previous_status', 'revision', 'version', 'category', 'priority', 'document_id', 'document_version', 'knowledge_base_id']
 const audit = value => ({
@@ -95,7 +100,7 @@ export async function fetchAdminOverview(settings, session, options = {}) {
   const taskStatus = pick(data.task_status, ['waiting_confirmation', 'completed', 'cancelled', 'rejected', 'expired'])
   const ticketStatus = pick(data.ticket_status, ['open', 'in_progress', 'resolved', 'closed', 'cancelled'])
   if ([...Object.values(taskStatus), ...Object.values(ticketStatus)].some(value => !integer(value))) return failShape()
-  return { counts, task_status: taskStatus, ticket_status: ticketStatus }
+  return { counts, user_scope: data.user_scope === 'system' ? 'system' : 'organization', task_status: taskStatus, ticket_status: ticketStatus }
 }
 
 export const fetchAdminUsers = (settings, session, options) => page(settings, session, '/admin/users', user, options)

@@ -12,7 +12,7 @@ from business.store import BusinessError, BusinessStore, Principal
 
 METHODS = ("overview", "users", "activity", "conversations", "tasks", "tickets")
 PAGED_METHODS = ("users", "activity", "conversations", "tasks", "tickets")
-USER_FIELDS = {"id", "email", "display_name", "role", "created_at"}
+USER_FIELDS = {"id", "username", "email", "display_name", "memberships", "created_at"}
 ACTIVITY_FIELDS = {"id", "organization_id", "actor_id", "actor_display_name", "actor_email",
                    "task_id", "ticket_id", "event_type", "details", "created_at"}
 CONVERSATION_FIELDS = {"conversation_id", "organization_id", "owner_id", "created_at", "owner_email",
@@ -66,17 +66,17 @@ def admin_data():
         yield AdminService(store), store, actors, clock
 
 
-def test_overview_counts_whole_organization_and_status_distributions(admin_data):
+def test_overview_counts_system_users_and_org_business_distributions(admin_data):
     admin, _, actors, _ = admin_data
     result = admin.overview(actors["admin-a"])
     assert result == {
-        "organization_id": "a",
-        "counts": {"users": 5, "tasks": 3, "tickets": 1, "events": 7, "conversations": 3, "requests": 3},
+        "organization_id": "a", "user_scope": "system",
+        "counts": {"users": 7, "tasks": 3, "tickets": 1, "events": 7, "conversations": 3, "requests": 3},
         "task_status": {"cancelled": 1, "completed": 1, "waiting_confirmation": 1},
         "ticket_status": {"in_progress": 1},
     }
     other = admin.overview(actors["admin-b"])
-    assert other["counts"] == {"users": 2, "tasks": 1, "tickets": 1, "events": 3, "conversations": 1, "requests": 1}
+    assert other["counts"] == {"users": 7, "tasks": 1, "tickets": 1, "events": 3, "conversations": 1, "requests": 1}
     assert other["task_status"] == {"completed": 1}
     assert other["ticket_status"] == {"open": 1}
 
@@ -84,7 +84,7 @@ def test_overview_counts_whole_organization_and_status_distributions(admin_data)
 def test_empty_business_organization_has_zero_counts_and_empty_statuses(admin_data):
     admin, _, _, _ = admin_data
     result = admin.overview(Principal("admin-a", "empty", "admin"))
-    assert result["counts"] == {"users": 1, "tasks": 0, "tickets": 0, "events": 0, "conversations": 0, "requests": 0}
+    assert result["counts"] == {"users": 7, "tasks": 0, "tickets": 0, "events": 0, "conversations": 0, "requests": 0}
     assert result["task_status"] == {} and result["ticket_status"] == {}
 
 
@@ -125,16 +125,18 @@ def test_admin_cannot_claim_membership_in_another_organization(admin_data, metho
     assert caught.value.http_status == 403
 
 
-def test_users_lists_all_own_org_roles_with_exact_safe_field_whitelist(admin_data):
+def test_users_lists_all_accounts_once_with_exact_safe_field_whitelist(admin_data):
     admin, _, actors, _ = admin_data
     result = admin.users(actors["admin-a"])
-    assert result["total"] == 5 and result["limit"] == 50 and result["offset"] == 0
-    assert {item["id"] for item in result["items"]} == {"admin-a", "alice", "bob", "support-a", "kb-a"}
-    assert {item["role"] for item in result["items"]} == {"admin", "customer", "support", "kb_admin"}
+    assert result["total"] == 7 and result["limit"] == 50 and result["offset"] == 0
+    assert {item["id"] for item in result["items"]} == {"admin-a", "alice", "bob", "support-a", "kb-a", "admin-b", "other"}
+    assert {m["role"] for item in result["items"] for m in item["memberships"]} == {"admin", "customer", "support", "kb_admin"}
     assert all(set(item) == USER_FIELDS for item in result["items"])
     serialized = json.dumps(result)
     assert "PASSWORD_" not in serialized and "TOKEN_" not in serialized
-    assert "admin-b@example.invalid" not in serialized
+    assert "admin-b@example.invalid" in serialized
+    assert all(set(m) == {"organization_id", "organization_name", "role"} for item in result["items"] for m in item["memberships"])
+    assert len(next(item for item in result["items"] if item["id"] == "admin-a")["memberships"]) == 2
 
 
 def test_activity_joins_display_names_and_never_lists_other_org_events(admin_data):
