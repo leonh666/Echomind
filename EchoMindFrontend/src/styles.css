@@ -1518,3 +1518,12 @@ summary { cursor: pointer; }
   .login-line input, .login-line button { width: 100%; }
   .login-line label { min-width: 0; }
 }
+
+.connection-feedback { font-size: 12px; line-height: 1.65; color: var(--text); overflow-wrap: anywhere; }
+.connection-data { display: flex; flex-wrap: wrap; gap: 10px 20px; padding: 12px 0; border-top: 1px solid var(--line); }
+.connection-data span { color: var(--muted); font-size: 12px; }
+.connection-data strong { color: var(--text); margin-left: 4px; }
+.debug-details { border-top: 1px solid var(--line); padding-top: 12px; }
+.debug-details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+.debug-details dd { overflow-wrap: anywhere; }
+.handling-note { font-size: 12px; line-height: 1.7; border-left: 3px solid var(--accent); padding: 8px 12px; background: var(--accent-soft); border-radius: 4px; }

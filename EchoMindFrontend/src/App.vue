@@ -84,6 +84,7 @@
                 <summary>{{ item.streaming ? '正在处理' : '处理进度' }}<small v-if="item.streaming">{{ item.elapsed || 0 }} 秒</small></summary>
                 <ol><li v-for="(step, index) in item.progress" :key="index" :class="step.status">{{ step.message }}</li></ol>
               </details>
+              <p v-if="item.handlingDetail && !item.streaming" class="handling-note">{{ item.handlingDetail }}</p>
               <p v-if="item.content">{{ item.content }}<span v-if="item.streaming" class="stream-cursor" aria-label="正在生成">▍</span></p>
               <p v-else-if="item.streaming" class="reply-waiting" role="status">{{ item.progress?.at(-1)?.message || '请求已发送，等待处理…' }}</p>
               <AnswerEvidence v-if="item.role === 'assistant' && !item.streaming && (item.feedbackAvailable || item.sources?.length)" :sources="item.sources || []" />
@@ -143,56 +144,32 @@
 
         <aside class="chat-sidebar">
           <div class="chat-sidebar-scroll">
-            <section v-if="access.admin" class="side-card session-card">
-              <div class="card-heading">
-                <div>
-                  <span class="kicker">Session</span>
-                  <h2>会话信息</h2>
-                </div>
-                <span class="status-copy muted">{{ settings.conversationId ? '已启用' : '新会话' }}</span>
-              </div>
-              <div class="session-grid">
-                <div>
-                  <span>会话 ID</span>
-                  <strong>{{ settings.conversationId || '自动生成' }}</strong>
-                </div>
-                <div>
-                  <span>用户 ID</span>
-                  <strong>{{ settings.userId || 'anonymous' }}</strong>
-                </div>
-              </div>
-            </section>
-
-            <section v-else class="side-card guidance-card">
+            <section v-if="!access.admin" class="side-card guidance-card">
               <div class="card-heading"><div><span class="kicker">咨询小贴士</span><h2>让问题更快解决</h2></div></div>
               <ol><li><span>01</span><div><strong>说清遇到的情况</strong><p>描述发生了什么，以及你希望获得的帮助。</p></div></li><li><span>02</span><div><strong>补充必要的上下文</strong><p>提供商品型号、错误提示或已经尝试的步骤。</p></div></li><li><span>03</span><div><strong>核对回复与参考来源</strong><p>仍有疑问可以继续追问，并记录处理结果。</p></div></li></ol>
             </section>
 
             <section v-if="access.admin" class="side-card connection-card">
               <div class="card-heading">
-                <div>
-                  <span class="kicker">Connection</span>
-                  <h2>连接配置</h2>
-                </div>
+                <div><span class="kicker">服务状态</span><h2>连接与数据</h2></div>
                 <span class="status-copy" :class="healthOk ? 'success' : 'muted'">{{ healthLabel }}</span>
               </div>
-
               <div v-if="availableBackends.length > 1" class="backend-tabs">
                 <button v-for="type in availableBackends" :key="type" :disabled="chatPending" :class="{ active: settings.backend === type }" @click="switchBackend(type)">{{ backendMeta(type, settings).label }}</button>
               </div>
-
-              <label>
-                <span>用户 ID</span>
-                <input v-model="settings.userId" @change="persist" :disabled="Boolean(authSession)" placeholder="u1001" />
-              </label>
-              <label>
-                <span>会话 ID</span>
-                <input v-model="settings.conversationId" @change="persist" placeholder="自动生成" />
-              </label>
               <div class="side-actions">
-                <button @click="checkHealth">检查连接</button>
-                <button class="quiet-button" @click="refreshConsole">刷新</button>
+                <button @click="checkHealth(true)" :disabled="healthBusy || consoleBusy">{{ healthBusy ? '检查中…' : '检查连接' }}</button>
+                <button class="quiet-button" @click="refreshConsole(true)" :disabled="healthBusy || consoleBusy">{{ consoleBusy ? '刷新中…' : '刷新服务数据' }}</button>
               </div>
+              <p class="connection-feedback" role="status">{{ healthFeedback }}</p>
+              <p class="muted">只检测后端接口连通性，不代表模型或知识库检索正常。</p>
+              <div class="connection-data"><span>知识片段 <strong>{{ knowledgeCount }}</strong></span><span>Skills <strong>{{ skillsData.count ?? skillsData.skills?.length ?? '-' }}</strong></span></div>
+              <p class="connection-feedback" role="status">{{ consoleFeedback }}</p>
+              <details class="debug-details">
+                <summary>排障信息</summary>
+                <p class="muted">仅用于查找日志和定位会话，无需手动填写。</p>
+                <dl class="detail-list"><div><dt>当前账号</dt><dd>{{ authSession?.user?.username || authSession?.user?.display_name || '-' }}</dd></div><div><dt>用户 ID</dt><dd>{{ settings.userId || '-' }}</dd></div><div><dt>会话 ID</dt><dd>{{ settings.conversationId || '发送消息后生成' }}</dd></div><div v-if="lastResponse?.requestId"><dt>请求 ID</dt><dd>{{ lastResponse.requestId }}</dd></div></dl>
+              </details>
             </section>
 
             <section v-if="access.admin" class="side-card trace-card">
@@ -214,8 +191,9 @@
                   <div><dt>意图</dt><dd>{{ lastResponse.intent || '-' }}</dd></div>
                   <div><dt>置信度</dt><dd>{{ formatPercent(lastResponse.routingConfidence) }}</dd></div>
                   <div><dt>知识库</dt><dd :class="lastResponse.knowledgeUsed ? 'success' : 'muted'">{{ lastResponse.knowledgeUsed ? '已使用' : '未使用' }}</dd></div>
-                  <div><dt>转人工</dt><dd :class="lastResponse.escalated ? 'danger' : 'muted'">{{ lastResponse.escalated ? '是' : '否' }}</dd></div>
+                  <div><dt>处理状态</dt><dd>{{ chatStatus(lastResponse).label }}</dd></div>
                 </dl>
+                <p v-if="chatStatus(lastResponse).detail" class="muted">{{ chatStatus(lastResponse).detail }}</p>
                 <p v-if="lastResponse.routingReason" class="routing-reason">{{ lastResponse.routingReason }}</p>
                 <div v-if="lastTrace?.trace" class="trace-call-list">
                   <div class="trace-call-title">工具调用</div>
@@ -241,16 +219,16 @@
                   <span class="kicker">Runtime</span>
                   <h2>服务运行状态</h2>
                 </div>
-                <button class="link-button" @click="loadMonitor">刷新</button>
+                <button class="link-button" @click="refreshMonitor" :disabled="monitorBusy || consoleBusy">{{ monitorBusy ? '刷新中…' : '刷新统计' }}</button>
               </div>
-              <p class="muted">当前服务进程的聚合统计</p>
+              <p class="muted">当前服务进程的聚合统计</p><p v-if="monitorFeedback" class="connection-feedback" role="status">{{ monitorFeedback }}</p>
               <div class="mini-stats">
                 <div><strong>{{ totalRequests }}</strong><span>请求</span></div>
                 <div><strong>{{ agentCount }}</strong><span>Agent</span></div>
                 <div><strong>{{ activeAlerts.length }}</strong><span>告警</span></div>
               </div>
               <div v-if="activeAlerts.length" class="alert-note">{{ activeAlerts[0].detail || activeAlerts[0].title }}</div>
-              <p v-else class="healthy-note">当前没有活跃告警。</p>
+              <p v-else class="healthy-note">{{ monitorFeedback.includes('失败') ? '当前无法获取告警状态。' : '最近加载结果中没有活跃告警。' }}</p>
             </section>
           </div>
         </aside>
@@ -378,6 +356,7 @@ import AdminDashboard from './components/AdminDashboard.vue'
 import AnswerEvidence from './components/AnswerEvidence.vue'
 import AnswerFeedback from './components/AnswerFeedback.vue'
 import DiagnosticsPanel from './components/DiagnosticsPanel.vue'
+import { chatStatus, replyMeta } from './lib/chat-status.js'
 import { identityKey, workspaceAccess } from './lib/access.js'
 import { evaluationReports, promoteEvaluation } from './lib/operations.js'
 import {
@@ -416,6 +395,9 @@ let chatTimer
 let scrollScheduled = false
 const healthOk = ref(false)
 const healthLabel = ref('未检查')
+const healthBusy = ref(false), consoleBusy = ref(false), monitorBusy = ref(false)
+const healthFeedback = ref('尚未检查连接'), consoleFeedback = ref('尚未刷新服务数据'), monitorFeedback = ref('')
+let healthSequence = 0, consoleSequence = 0, monitorSequence = 0
 const statusText = ref('')
 const knowledgeCount = ref('-')
 const searchQuery = ref('退款多久能到账')
@@ -466,6 +448,9 @@ function sessionChanged(session) {
     docTitle.value = ''; docContent.value = ''; docSource.value = ''; docVersion.value = ''
     searchQuery.value = ''; searchVersion.value = ''; searchKnowledgeBase.value = ''
     statusText.value = ''
+    healthSequence += 1; consoleSequence += 1; monitorSequence += 1
+    healthBusy.value = false; consoleBusy.value = false; monitorBusy.value = false
+    healthFeedback.value = '尚未检查连接'; consoleFeedback.value = '尚未刷新服务数据'; monitorFeedback.value = ''
     knowledgeCount.value = '-'
     monitorData.value = { agent_stats: {}, tool_stats: {}, active_alerts: [], suggestions: [] }
     skillsData.value = { count: 0, skills: [], errors: [] }
@@ -524,24 +509,63 @@ function switchBackend(type) {
   refreshConsole()
 }
 
-async function refreshConsole() {
-  const requests = [checkHealth()]
-  if (access.value.knowledge) requests.push(loadStats(), loadSkills())
-  if (access.value.admin) requests.push(loadMonitor())
-  await Promise.allSettled(requests)
+function checkedTime() { return new Date().toLocaleTimeString('zh-CN', { hour12: false }) }
+
+async function refreshConsole(notify = false) {
+  if (consoleBusy.value) return
+  const generation = sessionGeneration, sequence = ++consoleSequence
+  consoleBusy.value = true
+  consoleFeedback.value = '正在读取最新服务数据…'
+  const jobs = [['接口连接', checkHealth()]]
+  if (access.value.knowledge) jobs.push(['知识库统计', loadStats()], ['Skills', loadSkills()])
+  if (access.value.admin) jobs.push(['运行统计', loadMonitor()])
+  try {
+    const results = await Promise.allSettled(jobs.map(([, work]) => work))
+    if (generation !== sessionGeneration || sequence !== consoleSequence) return
+    const failures = jobs.filter((_, i) => results[i].status === 'rejected' || results[i].value !== true).map(([label]) => label)
+    consoleFeedback.value = failures.length ? `刷新未全部完成：${failures.join('、')}获取失败 · ${checkedTime()}` : `服务数据已更新 · ${checkedTime()}`
+    if (notify) showToast(consoleFeedback.value)
+  } finally {
+    if (generation === sessionGeneration && sequence === consoleSequence) consoleBusy.value = false
+  }
 }
 
-async function checkHealth() {
+async function checkHealth(notify = false) {
+  const generation = sessionGeneration, sequence = ++healthSequence, started = Date.now()
+  healthBusy.value = true; healthFeedback.value = '正在检查后端接口…'
   try {
     const data = await requestHealth(settings.backend, settings)
-    healthOk.value = data.status === 'ok'
-    healthLabel.value = data.status || 'ok'
+    if (generation !== sessionGeneration || sequence !== healthSequence) return false
+    healthOk.value = data?.status === 'ok'
+    healthLabel.value = healthOk.value ? '接口可达' : '服务异常'
+    healthFeedback.value = `检查完成：${healthLabel.value} · ${Date.now() - started} ms · ${checkedTime()}`
     statusText.value = JSON.stringify(data, null, 2)
+    if (notify) showToast(healthFeedback.value)
+    return healthOk.value
   } catch (error) {
-    healthOk.value = false
-    healthLabel.value = '不可用'
+    if (generation !== sessionGeneration || sequence !== healthSequence) return false
+    healthOk.value = false; healthLabel.value = '连接失败'
+    healthFeedback.value = `检查失败：${error.name === 'TimeoutError' ? '请求超时，请检查后端服务' : error.message} · ${checkedTime()}`
     statusText.value = error.message
+    if (notify) showToast(healthFeedback.value)
+    return false
+  } finally {
+    if (generation === sessionGeneration && sequence === healthSequence) healthBusy.value = false
+  }
+}
 
+async function refreshMonitor() {
+  if (monitorBusy.value || !access.value.admin) return
+  const generation = sessionGeneration, sequence = ++monitorSequence
+  monitorBusy.value = true; monitorFeedback.value = '正在刷新运行统计…'
+  try {
+    const ok = await loadMonitor()
+    if (generation === sessionGeneration && sequence === monitorSequence) {
+      monitorFeedback.value = `${ok ? '运行统计已更新' : '运行统计刷新失败，请检查服务或登录状态'} · ${checkedTime()}`
+      showToast(monitorFeedback.value)
+    }
+  } finally {
+    if (generation === sessionGeneration && sequence === monitorSequence) monitorBusy.value = false
   }
 }
 
@@ -551,9 +575,11 @@ async function loadStats() {
   try {
     const data = await requestKnowledgeStats(settings.backend, settings)
     if (generation === sessionGeneration) knowledgeCount.value = data.total_chunks ?? data.totalChunks ?? '-'
+    return generation === sessionGeneration
   } catch (error) {
     if (generation === sessionGeneration) knowledgeCount.value = '-'
     handleFailure(error, generation, false)
+    return false
   }
 }
 
@@ -562,10 +588,18 @@ async function loadMonitor() {
   const generation = sessionGeneration
   try {
     const data = await requestMonitor(settings.backend, settings)
-    if (generation === sessionGeneration) monitorData.value = data
+    if (generation === sessionGeneration) {
+      monitorData.value = data
+      monitorFeedback.value = `运行统计已更新 · ${checkedTime()}`
+    }
+    return generation === sessionGeneration
   } catch (error) {
-    if (generation === sessionGeneration) monitorData.value = { agent_stats: {}, tool_stats: {}, active_alerts: [], suggestions: [] }
+    if (generation === sessionGeneration) {
+      monitorData.value = { agent_stats: {}, tool_stats: {}, active_alerts: [], suggestions: [] }
+      monitorFeedback.value = `运行统计刷新失败 · ${checkedTime()}`
+    }
     handleFailure(error, generation, false)
+    return false
   }
 }
 
@@ -575,9 +609,11 @@ async function loadSkills() {
   try {
     const data = await requestSkills(settings.backend, settings)
     if (generation === sessionGeneration) skillsData.value = data
+    return generation === sessionGeneration
   } catch (error) {
     if (generation === sessionGeneration) skillsData.value = { count: 0, skills: [], errors: [] }
     handleFailure(error, generation, false)
+    return false
   }
 }
 
@@ -657,13 +693,13 @@ async function sendMessage() {
     reply.content = response.response
     reply.sources = response.sources; reply.tasks = response.tasks; reply.warnings = response.warnings
     reply.requestId = response.requestId; reply.feedbackAvailable = response.feedbackAvailable
+    reply.meta = replyMeta(response, access.value.admin)
+    reply.handlingDetail = chatStatus(response).detail
     if (response.tasks?.length) operationsRefresh.value += 1
     for (const step of reply.progress) { if (step.status === 'pending') step.status = 'done' }
     const trace = await loadToolTrace(response.requestId)
     if (generation !== sessionGeneration) return
     lastTrace.value = trace
-    const meta = access.value.admin ? [response.intent, response.primaryAgent || response.agentType, response.knowledgeUsed ? 'RAG' : '', response.escalated ? '转人工' : ''].filter(Boolean).join(' · ') : ''
-    reply.meta = meta
     reply.trace = lastTrace.value?.trace || reply.trace
     await loadMonitor()
   } catch (error) {

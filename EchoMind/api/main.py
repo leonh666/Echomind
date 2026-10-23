@@ -269,6 +269,8 @@ class ChatResponse(BaseModel):
     routing_reason: str = ""
     routing_confidence: float = 0.0
     escalated:   bool
+    escalation_reasons: List[str] = Field(default_factory=list)
+    handoff_status: str = "not_requested"  # recommendation/draft, never a dispatched handoff
     latency_ms:  float
     knowledge_used: bool = False
     entities: Dict[str, List[str]] = Field(default_factory=dict)
@@ -484,6 +486,9 @@ async def _run_chat_inner(req: ChatRequest, actor=None):
         routing_reason=result.routing_reason,
         routing_confidence=result.routing_confidence,
         escalated=result.escalated,
+        escalation_reasons=list(getattr(result, "escalation_reasons", [])),
+        handoff_status=("pending_confirmation" if any(t.get("status") == "waiting_confirmation" for t in orch_req.business_tasks)
+                        else "recommended" if result.escalated else "not_requested"),
         latency_ms=round(result.latency_ms, 1),
         knowledge_used=bool(orch_req.evidence),
         entities=intent_result.entities,

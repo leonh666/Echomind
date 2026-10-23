@@ -50,15 +50,15 @@ export function backendMeta(type, settings) {
 }
 
 export async function requestHealth(type, settings) {
-  return requestJson(backendMeta(type, settings).baseUrl, '/health')
+  return requestJson(backendMeta(type, settings).baseUrl, '/health', { signal: AbortSignal.timeout(10000) })
 }
 
 export async function requestMonitor(type, settings) {
-  return requestJson(backendMeta(type, settings).baseUrl, '/monitor')
+  return requestJson(backendMeta(type, settings).baseUrl, '/monitor', { signal: AbortSignal.timeout(10000) })
 }
 
 export async function requestSkills(type, settings) {
-  return requestJson(backendMeta(type, settings).baseUrl, '/skills')
+  return requestJson(backendMeta(type, settings).baseUrl, '/skills', { signal: AbortSignal.timeout(10000) })
 }
 
 export async function reloadSkills(type, settings) {
@@ -66,7 +66,7 @@ export async function reloadSkills(type, settings) {
 }
 
 export async function requestKnowledgeStats(type, settings) {
-  return requestJson(backendMeta(type, settings).baseUrl, '/knowledge/stats')
+  return requestJson(backendMeta(type, settings).baseUrl, '/knowledge/stats', { signal: AbortSignal.timeout(10000) })
 }
 
 export async function runEvaluation(type, settings, body = null) {
@@ -168,6 +168,8 @@ function normalizeChatResponse(type, raw) {
     intentConfidence: Number(raw.intent_confidence ?? raw.intentConfidence ?? 0),
     intentSourceScores: raw.intent_source_scores || raw.intentSourceScores || {},
     escalated: Boolean(raw.escalated),
+    escalationReasons: Array.isArray(raw.escalation_reasons) ? raw.escalation_reasons.filter(x => typeof x === 'string') : [],
+    handoffStatus: raw.handoff_status || '',
     latencyMs: Number(raw.latency_ms ?? raw.latencyMs ?? 0),
     knowledgeUsed: Boolean(raw.knowledge_used ?? raw.knowledgeUsed),
     verified: raw.verified,

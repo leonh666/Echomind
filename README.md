@@ -52,7 +52,7 @@ docker compose exec echomind python -m business.auth --db /app/data/business/ech
 
 ## 验证与数据边界
 
-2026-10-23 最新本地回归：Python 应用和评测包 **430 项测试通过**（含用户名注册、旧账号迁移、权限隔离、数据 v1.1 修订与反馈/诊断），前端 **42 项测试通过**，Vite 生产构建通过。使用合成账号、假模型与独立 SQLite 库，完成注册、用户名登录及管理员分页、普通用户隔离、来源与反馈、退出清理和诊断报告的页面检查。权限首轮条件见 [验收记录](EchoMind/docs/admin-permissions-verification.md)，新增功能见 [证据反馈与诊断报告](EchoMind/wiki/证据反馈与诊断报告.md)。
+2026-10-23 最新本地回归：Python 应用和评测包 **440 项测试通过**（含人工升级规则、用户名注册、旧账号迁移、权限隔离、数据 v1.1 修订与反馈/诊断），前端 **47 项测试通过**，Vite 生产构建通过。使用合成账号、假模型与独立 SQLite 库，完成连接检查、服务数据刷新、人工建议与待确认草稿、注册、用户名登录及管理员分页、普通用户隔离、来源与反馈、退出清理和诊断报告的页面检查。权限首轮条件见 [验收记录](EchoMind/docs/admin-permissions-verification.md)，新增功能见 [证据反馈与诊断报告](EchoMind/wiki/证据反馈与诊断报告.md) 和 [咨询状态与服务检查](EchoMind/wiki/咨询状态与服务检查说明.md)。
 
 ```bash
 cd EchoMind

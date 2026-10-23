@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { identityKey, workspaceAccess } from '../src/lib/access.js'
+import { chatStatus, replyMeta } from '../src/lib/chat-status.js'
 
 // Test the actual setup script with reactive/API doubles, without Vue or a browser.
 const setup = readFileSync(new URL('../src/App.vue', import.meta.url), 'utf8').split('<script setup>')[1].split('</script>')[0]
@@ -21,7 +22,7 @@ function workspace(overrides = {}) {
   const api = (name, result) => async () => { calls.push(name); return result }
   const bindings = {
     ref: value => ({ value }), reactive: value => value, computed: get => ({ get value() { return get() } }),
-    watch() {}, onMounted() {}, onBeforeUnmount() {}, nextTick: async () => {}, identityKey, workspaceAccess,
+    watch() {}, onMounted() {}, onBeforeUnmount() {}, nextTick: async () => {}, identityKey, workspaceAccess, chatStatus, replyMeta,
     availableBackendIds: () => ['python'], createInitialSettings: () => ({ backend: 'python', endpoints: { python: '/api/python' }, userId: '', conversationId: '' }),
     backendMeta: () => ({ label: 'Python', baseUrl: '/api/python' }), saveSettings() {},
     requestHealth: api('health', { status: 'ok' }), requestKnowledgeStats: api('stats', { total_chunks: 2 }),
@@ -32,7 +33,7 @@ function workspace(overrides = {}) {
     requestAnimationFrame() {}, setInterval: () => ++sequence, clearInterval: id => clearedTimers.push(id),
     setTimeout: () => ++sequence, clearTimeout() {}, ...overrides
   }
-  const exposed = 'sessionChanged,refreshConsole,loadSkills,loadReports,loadMonitor,reloadSkillSet,sendMessage,authSession,activeView,draft,docTitle,docContent,docSource,docVersion,searchQuery,searchResults,reports,evalData,messages,skillsData,monitorData,busy,chatPending'
+  const exposed = 'sessionChanged,refreshConsole,checkHealth,refreshMonitor,healthBusy,consoleBusy,monitorBusy,healthFeedback,consoleFeedback,monitorFeedback,healthOk,toast,loadSkills,loadReports,loadMonitor,reloadSkillSet,sendMessage,authSession,activeView,draft,docTitle,docContent,docSource,docVersion,searchQuery,searchResults,reports,evalData,messages,skillsData,monitorData,busy,chatPending'
   return { ...new Function(...Object.keys(bindings), `${script}\nreturn {${exposed}, chatState: () => ({ controller: chatController, timer: chatTimer })}`)(...Object.values(bindings)), calls, clearedTimers }
 }
 test('identity changes clear personal drafts, backend forms and cached records', async () => {
@@ -77,4 +78,41 @@ test('old chat cleanup cannot stop a new user chat after identity changes', asyn
   assert.ok(app.clearedTimers.includes(oldTimer)); assert.ok(!app.clearedTimers.includes(current.timer))
   fresh.resolve({ response: 'new reply' }); await newRun
   assert.equal(app.chatPending.value, false); assert.ok(!JSON.stringify(app.messages.value).includes('old reply'))
+})
+
+test('connection check shows success or error, time and clears the loading state', async () => {
+  const app = workspace()
+  assert.equal(await app.checkHealth(true), true)
+  assert.match(app.healthFeedback.value, /检查完成：接口可达.*ms/)
+  assert.equal(app.toast.value, app.healthFeedback.value)
+  assert.equal(app.healthBusy.value, false)
+  const failed = workspace({ requestHealth: async () => { throw new Error('503: backend unavailable') } })
+  assert.equal(await failed.checkHealth(true), false)
+  assert.match(failed.healthFeedback.value, /检查失败.*503/)
+  assert.equal(failed.healthOk.value, false)
+})
+
+test('refresh distinguishes partial failure from success and preserves current chat', async () => {
+  const app = workspace({ requestKnowledgeStats: async () => { throw new Error('offline') } })
+  app.sessionChanged(member('admin', 'admin')); await settle()
+  app.messages.value = [{ content: 'keep my conversation' }]
+  await app.refreshConsole(true)
+  assert.match(app.consoleFeedback.value, /未全部完成.*知识库统计/)
+  assert.doesNotMatch(app.consoleFeedback.value, /已更新/)
+  assert.equal(app.consoleBusy.value, false)
+  assert.equal(app.messages.value[0].content, 'keep my conversation')
+  const ok = workspace(); ok.sessionChanged(member('admin', 'admin')); await settle()
+  await ok.refreshConsole(true)
+  assert.match(ok.consoleFeedback.value, /服务数据已更新/)
+})
+
+test('a late connection check cannot replace the new account state', async () => {
+  const old = deferred(); let count = 0
+  const app = workspace({ requestHealth: () => ++count === 1 ? old.promise : Promise.resolve({ status: 'ok' }) })
+  const first = app.checkHealth(true)
+  app.sessionChanged(member('alice')); await settle()
+  const message = app.healthFeedback.value
+  old.resolve({ status: 'bad' }); await first
+  assert.equal(app.healthOk.value, true)
+  assert.equal(app.healthFeedback.value, message)
 })

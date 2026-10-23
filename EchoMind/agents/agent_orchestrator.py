@@ -13,7 +13,7 @@
   - 结果由 Orchestrator 合并后返回
 
 升级机制：
-  - Agent 置信度低于阈值 → 自动升级到更高级 Agent 或转人工
+  - 基于结构化意图和紧急度建议人工核验，不通过回答关键词判断，也不表示已转交人工
 """
 import asyncio
 import inspect
@@ -176,6 +176,7 @@ class OrchestratorResult:
     tool_traces: List[Dict[str, Any]] = field(default_factory=list)
     routing_reason: str = ""
     routing_confidence: float = 0.0
+    escalation_reasons: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -193,6 +194,16 @@ class RoutingDecision:
     @property
     def multi_agent(self) -> bool:
         return bool(self.supporting_agents)
+
+
+def escalation_reasons(req: Request) -> List[str]:
+    """Policy facts are independent of the generated answer's wording."""
+    reasons = []
+    if req.urgency == UrgencyLevel.CRITICAL:
+        reasons.append("紧急度为 CRITICAL，需要人工核验")
+    if req.intent in (IntentCategory.ESCALATION, IntentCategory.HUMAN_HANDOFF):
+        reasons.append("请求被识别为人工升级意图")
+    return reasons
 
 
 # ── 基础 Agent ────────────────────────────────────────────────────────────────
@@ -233,7 +244,7 @@ class BaseAgent:
             ms = (time.monotonic() - t0) * 1000
             self.stats.success += 1
             self.stats.total_ms += ms
-            escalate = self._needs_escalation(call_result.content)
+            escalate = bool(escalation_reasons(req))
             return AgentResponse(
                 agent_type=self.agent_type,
                 content=call_result.content,
@@ -447,11 +458,6 @@ class BaseAgent:
         }
         return json.dumps(packet, ensure_ascii=False)
 
-    def _needs_escalation(self, content: str) -> bool:
-        """检测 Agent 是否建议升级（简单关键词检测）。"""
-        keywords = ["转人工", "人工客服", "escalate", "specialist", "无法处理"]
-        return any(kw in content for kw in keywords)
-
 
 class GeneralAgent(BaseAgent):
     agent_type    = AgentType.GENERAL
@@ -589,10 +595,10 @@ class EscalationAgent(BaseAgent):
         urgency = req.urgency.name if req.urgency else "UNKNOWN"
         entities = json.dumps(req.entities or {}, ensure_ascii=False)
         content = (
-            "我已将这个问题标记为人工升级处理。\n\n"
+            "此问题需要人工升级核验，当前尚未转交人工。\n\n"
             f"升级原因：意图={intent}，紧急度={urgency}\n"
             f"已记录信息：{entities}\n"
-            "请不要发送密码、短信验证码或完整支付凭证；人工客服会根据会话记录继续核验。"
+            "建议核对并确认工单草稿，再跟进处理状态。请不要发送密码、短信验证码或完整支付凭证。"
         )
         ms = (time.monotonic() - t0) * 1000
         self.stats.success += 1
@@ -771,6 +777,7 @@ class AgentOrchestrator:
             "tools_used": list(result.tools_used),
             "tool_calls": list(result.tool_traces),
             "escalated": result.escalated,
+            "escalation_reasons": list(result.escalation_reasons),
             "latency_ms": round(result.latency_ms, 1),
         }
         self._recent_tool_traces.append(trace)
@@ -833,14 +840,11 @@ class AgentOrchestrator:
         response = await self._execute(req, decision.primary_agent)
 
         # 4. 升级检查
-        escalated = False
-        if response.escalate or req.urgency == UrgencyLevel.CRITICAL or req.intent in (
-            IntentCategory.ESCALATION,
-            IntentCategory.HUMAN_HANDOFF,
-        ):
-            escalated = True
-            logger.warning(f"请求 {req.request_id} 触发升级: urgency={req.urgency}")
-            # API 层可保存待确认草稿；业务提交仍由用户独立确认。
+        reasons = escalation_reasons(req)
+        if response.escalate and not reasons:
+            reasons.append("处理节点建议人工核验")
+        escalated = bool(reasons)
+        # This is a recommendation, not confirmation of delivery to human staff.
 
         result = OrchestratorResult(
             request_id=req.request_id,
@@ -848,6 +852,7 @@ class AgentOrchestrator:
             agent_type=response.agent_type,
             intent=req.intent,
             escalated=escalated,
+            escalation_reasons=reasons,
             latency_ms=(time.monotonic() - t0) * 1000,
             agent_types=[response.agent_type],
             primary_agent=decision.primary_agent,
@@ -877,7 +882,10 @@ class AgentOrchestrator:
         valid_responses = [r for r in responses if isinstance(r, AgentResponse)]
         emit("stage", message="正在汇总各项处理结果")
         combined = await self._composer.compose(req, valid_responses)
-        escalated = any(isinstance(r, AgentResponse) and r.escalate for r in responses)
+        reasons = escalation_reasons(req)
+        if any(r.escalate for r in valid_responses) and not reasons:
+            reasons.append("处理节点建议人工核验")
+        escalated = bool(reasons)
         tools_used = list(dict.fromkeys(
             tool_name
             for response in valid_responses
@@ -894,6 +902,7 @@ class AgentOrchestrator:
             agent_type=decision.primary_agent,
             intent=req.intent,
             escalated=escalated,
+            escalation_reasons=reasons,
             latency_ms=(time.monotonic() - t0) * 1000,
             agent_types=[
                 r.agent_type for r in responses
