@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, Literal, Optional
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 COOKIE = "echomind_session"
@@ -125,7 +125,7 @@ def install(app: FastAPI):
                 path = path[len(root_path):]
             path = path.rstrip("/") or "/"
             public = path in {
-                "/auth/login", "/auth/logout", "/health", "/health/live", "/health/ready",
+                "/auth/login", "/auth/register", "/auth/logout", "/health", "/health/live", "/health/ready",
             } or request.method == "OPTIONS"
             token = token_from(request)
             if path == "/metrics" and request.method in {"GET", "HEAD"} and metrics_credential_matches(token):
@@ -157,28 +157,57 @@ class StrictInput(BaseModel):
 
 
 class Login(StrictInput):
-    email: str = Field(min_length=3, max_length=254)
+    username: Optional[str] = Field(default=None, min_length=3, max_length=32)
+    email: Optional[str] = Field(default=None, min_length=3, max_length=254)
+
+    @model_validator(mode="after")
+    def one_identity(self):
+        if (self.username is None) == (self.email is None):
+            raise ValueError("请提供用户名")
+        return self
     password: str = Field(min_length=1, max_length=1024)
     organization_id: Optional[str] = None
     transport: Literal["cookie", "bearer"] = "cookie"
 
 
-@router.post("/auth/login", tags=["身份"])
-async def login(body: Login, request: Request, response: Response):
-    rt = runtime()
+class Registration(StrictInput):
+    username: str = Field(min_length=3, max_length=32)
+    password: str = Field(min_length=12, max_length=1024)
+
+
+@router.post("/auth/register", tags=["身份"], status_code=201)
+async def register(body: Registration, request: Request):
+    if os.getenv("ECHOMIND_REGISTRATION_ENABLED", "true").lower() != "true":
+        raise HTTPException(403, {"code": "REGISTRATION_DISABLED", "message": "注册暂未开放，请联系管理员"})
+    # Reuse the bounded per-IP login budget before doing expensive password work.
+    check_auth_rate(request)
+    result = await asyncio.to_thread(runtime().auth.register, body.username, body.password,
+                                    os.getenv("ECHOMIND_REGISTRATION_ORGANIZATION_ID") or None)
+    return {"username": result["user"]["username"], "message": "注册成功，请登录"}
+
+
+def check_auth_rate(request):
     now = time.monotonic()
     address = request.client.host if request.client else "unknown"
     count, start = _login_windows.get(address, (0, now))
     if now - start >= 60:
         count, start = 0, now
     if count >= 10:
-        raise HTTPException(429, {"code": "LOGIN_RATE_LIMIT", "message": "登录尝试过多，请稍后重试"})
-    if len(_login_windows) > 2000:
+        raise HTTPException(429, {"code": "LOGIN_RATE_LIMIT", "message": "操作过于频繁，请一分钟后重试"})
+    if len(_login_windows) >= 2000:
         for key in list(_login_windows):
             if now - _login_windows[key][1] >= 60:
                 _login_windows.pop(key, None)
+    if address not in _login_windows and len(_login_windows) >= 2000:
+        raise HTTPException(429, "操作繁忙，请稍后重试")
     _login_windows[address] = (count + 1, start)
-    result = await asyncio.to_thread(rt.auth.login, body.email, body.password, body.organization_id)
+
+
+@router.post("/auth/login", tags=["身份"])
+async def login(body: Login, request: Request, response: Response):
+    rt = runtime()
+    check_auth_rate(request)
+    result = await asyncio.to_thread(rt.auth.login, body.username or body.email, body.password, body.organization_id)
     token = result["token"]
     if body.transport == "cookie":
         response.set_cookie(COOKIE, token, httponly=True, secure=rt.secure_cookies,

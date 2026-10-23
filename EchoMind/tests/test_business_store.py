@@ -21,7 +21,7 @@ def business(tmp_path):
             db.execute("INSERT INTO organizations VALUES(?,?,?)", (org, org, clock[0]))
         for uid, org, role in (("alice", "a", "customer"), ("bob", "a", "customer"),
                                ("support", "a", "support"), ("other", "b", "admin")):
-            db.execute("INSERT INTO users VALUES(?,?,?,?,?,?,?)", (uid, uid + "@example.invalid", uid, "hash", "00", 1, clock[0]))
+            db.execute("INSERT INTO users(id,email,display_name,password_hash,password_salt,password_iterations,created_at) VALUES(?,?,?,?,?,?,?)", (uid, uid + "@example.invalid", uid, "hash", "00", 1, clock[0]))
             db.execute("INSERT INTO memberships VALUES(?,?,?)", (uid, org, role))
     return store, clock, Principal("alice", "a", "customer")
 

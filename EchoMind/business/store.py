@@ -154,6 +154,15 @@ class BusinessStore:
             conn.executescript(SCHEMA)
             from business.insights import SCHEMA as INSIGHT_SCHEMA
             conn.executescript(INSIGHT_SCHEMA)
+            # Additive migration: preserve IDs, passwords, memberships and sessions.
+            from business.auth import migrate_usernames
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                migrate_usernames(conn)
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
         finally:
             conn.close()
 

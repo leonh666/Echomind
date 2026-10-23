@@ -34,7 +34,7 @@ def admin_data():
             for organization in ("a", "b", "empty"):
                 conn.execute("INSERT INTO organizations VALUES(?,?,?)", (organization, "Workspace " + organization, clock[0]))
             for user_id, organization, role in people:
-                conn.execute("INSERT INTO users VALUES(?,?,?,?,?,?,?)",
+                conn.execute("INSERT INTO users(id,email,display_name,password_hash,password_salt,password_iterations,created_at) VALUES(?,?,?,?,?,?,?)",
                              (user_id, user_id + "@example.invalid", "Name " + user_id,
                               "PASSWORD_HASH_MUST_NOT_LEAK", "PASSWORD_SALT_MUST_NOT_LEAK", 600000, clock[0]))
                 conn.execute("INSERT INTO memberships VALUES(?,?,?)", (user_id, organization, role))

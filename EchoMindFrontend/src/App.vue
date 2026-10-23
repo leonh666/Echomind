@@ -41,7 +41,7 @@
       <section class="workspace-card">
         <dl class="detail-list">
           <div><dt>姓名</dt><dd>{{ authSession.user?.display_name || '-' }}</dd></div>
-          <div><dt>邮箱</dt><dd>{{ authSession.user?.email || '-' }}</dd></div>
+          <div><dt>用户名</dt><dd>{{ authSession.user?.username || '-' }}</dd></div>
           <div><dt>用户编号</dt><dd>{{ authSession.user_id || authSession.user?.id }}</dd></div>
           <div><dt>所属组织</dt><dd>{{ authSession.organization?.name || authSession.organization_id }}</dd></div>
           <div><dt>账号角色</dt><dd>{{ roleName }}</dd></div>

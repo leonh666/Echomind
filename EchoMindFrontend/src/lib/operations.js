@@ -20,7 +20,8 @@ async function call(settings, path, method = 'GET', body) {
 }
 
 export const sessionInfo = (settings) => call(settings, '/auth/me')
-export const login = (settings, email, password) => call(settings, '/auth/login', 'POST', { email, password })
+export const login = (settings, username, password) => call(settings, '/auth/login', 'POST', username.includes('@') ? { email: username, password } : { username, password })
+export const register = (settings, username, password) => call(settings, '/auth/register', 'POST', { username, password })
 export const logout = (settings) => call(settings, '/auth/logout', 'POST', {})
 export const tasks = (settings) => call(settings, '/tasks')
 export const tickets = (settings) => call(settings, '/tickets')

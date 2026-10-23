@@ -17,7 +17,7 @@ def insights(tmp_path):
             conn.execute("INSERT INTO organizations VALUES(?,?,?)", (org, org, clock[0]))
         for uid, org, role in (("alice", "a", "customer"), ("bob", "a", "customer"),
                                ("admin", "a", "admin"), ("support", "a", "support"), ("other", "b", "admin")):
-            conn.execute("INSERT INTO users VALUES(?,?,?,?,?,?,?)", (uid, uid + "@example.invalid", uid, "hash", "00", 1, clock[0]))
+            conn.execute("INSERT INTO users(id,email,display_name,password_hash,password_salt,password_iterations,created_at) VALUES(?,?,?,?,?,?,?)", (uid, uid + "@example.invalid", uid, "hash", "00", 1, clock[0]))
             conn.execute("INSERT INTO memberships VALUES(?,?,?)", (uid, org, role))
     return InsightService(store), clock, Principal("alice", "a", "customer"), Principal("admin", "a", "admin")
 

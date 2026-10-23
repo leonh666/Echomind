@@ -44,10 +44,13 @@ def admin_api(tmp_path, monkeypatch):
         for org in ("a", "b"):
             conn.execute("INSERT INTO organizations VALUES(?,?,?)", (org, "Organization " + org, 1000))
         for user_id, org, role in people:
-            conn.execute("INSERT INTO users VALUES(?,?,?,?,?,?,?)",
+            conn.execute("INSERT INTO users(id,email,display_name,password_hash,password_salt,password_iterations,created_at) VALUES(?,?,?,?,?,?,?)",
                          (user_id, user_id + "@example.invalid", "Display " + user_id,
                           password_hash, salt, 1000, 1000))
             conn.execute("INSERT INTO memberships VALUES(?,?,?)", (user_id, org, role))
+    from business.auth import migrate_usernames
+    with store._transaction() as conn:
+        migrate_usernames(conn)
     actors = {uid: Principal(uid, org, role) for uid, org, role in people}
     tokens = {uid: auth.login(uid + "@example.invalid", PASSWORD)["token"] for uid, _, _ in people}
     headers = {uid: {"Authorization": "Bearer " + token} for uid, token in tokens.items()}
@@ -97,7 +100,7 @@ def test_me_is_current_user_profile_with_a_safe_field_allowlist(admin_api):
     assert profile["authenticated"] and profile["user_id"] == "alice"
     assert profile["organization_id"] == "a" and profile["role"] == "customer"
     assert profile["user"] == {"id": "alice", "email": "alice@example.invalid",
-                               "display_name": "Display alice", "created_at": 1000.0}
+                               "display_name": "Display alice", "username": "alice", "created_at": 1000.0}
     assert profile["organization"] == {"id": "a", "name": "Organization a", "created_at": 1000.0}
     serialized = json.dumps(profile)
     assert all(secret not in serialized for secret in ("password", "salt", "token", "sessions"))

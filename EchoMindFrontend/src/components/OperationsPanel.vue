@@ -4,12 +4,14 @@
       <div class="account-identity"><span class="account-avatar" aria-hidden="true">{{ (session.user?.display_name || session.user_id || 'U').slice(0, 1).toUpperCase() }}</span><strong>{{ session.user?.display_name || session.user_id?.slice(0, 10) }}</strong><span class="account-role">{{ ({ admin: '管理员', support: '客服', kb_admin: '知识库管理员', customer: '用户' })[session.role] || '用户' }}</span><small v-if="session.organization?.name" class="account-organization">{{ session.organization.name }}</small></div>
       <button class="quiet-button" @click="signOut" :disabled="pending">退出登录</button>
     </template>
-    <form v-else class="login-line" @submit.prevent="signIn">
-      <span class="login-intro">登录你的工作空间</span>
-      <label><span class="sr-label">邮箱</span><input v-model="email" type="email" autocomplete="username" placeholder="账号邮箱" required /></label>
-      <label><span class="sr-label">密码</span><input v-model="password" type="password" autocomplete="current-password" placeholder="登录密码" required /></label>
-      <button :disabled="pending">登录</button>
-      <small>尚无账号？请联系管理员开通。</small>
+    <form v-else class="login-line" @submit.prevent="registerMode ? signUp() : signIn()">
+      <span class="login-intro">{{ registerMode ? '创建你的账号' : '登录你的工作空间' }}</span>
+      <label><span class="sr-label">用户名</span><input v-model="username" type="text" autocomplete="username" :pattern="registerMode ? '[A-Za-z0-9_]{3,32}' : undefined" :maxlength="registerMode ? 32 : 254" :title="registerMode ? '3–32 位字母、数字或下划线' : '请输入用户名'" placeholder="用户名" required /></label>
+      <label><span class="sr-label">密码</span><input v-model="password" type="password" :autocomplete="registerMode ? 'new-password' : 'current-password'" :minlength="registerMode ? 12 : 1" maxlength="1024" :placeholder="registerMode ? '密码（至少12位）' : '登录密码'" required /></label>
+      <label v-if="registerMode"><span class="sr-label">确认密码</span><input v-model="confirmPassword" type="password" autocomplete="new-password" placeholder="再次输入密码" required maxlength="1024" /></label>
+      <button :disabled="pending">{{ pending ? '请稍候…' : registerMode ? '注册账号' : '登录' }}</button>
+      <button type="button" class="quiet-button" :disabled="pending" @click="toggleAuth">{{ registerMode ? '已有账号？去登录' : '没有账号？立即注册' }}</button>
+      <small v-if="registerMode">用户名为3–32位字母、数字或下划线，注册后可管理自己的咨询与工单。</small>
     </form>
     <span v-if="error" class="danger" role="alert">{{ error }}</span>
   </section>
@@ -74,7 +76,8 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import * as api from '../lib/operations.js'
 const props = defineProps({ settings: { type: Object, required: true }, visible: Boolean, refreshKey: Number })
 const emit = defineEmits(['session-change', 'notice'])
-const session = ref(null), email = ref(''), password = ref(''), error = ref(''), pending = ref(false)
+const session = ref(null), username = ref(''), password = ref(''), error = ref(''), pending = ref(false)
+const registerMode = ref(false), confirmPassword = ref('')
 const taskList = ref([]), ticketList = ref([]), selected = ref(null), events = ref([]), lastTicket = ref(null)
 const blank = () => ({ title: '', description: '', category: 'technical', priority: 'normal', metadata: {} })
 const form = reactive(blank())
@@ -107,7 +110,7 @@ function setSession(value) {
   emit('session-change', value)
 }
 function invalidateSession() {
-  clearPrivateState(); session.value = null; password.value = ''; email.value = ''; error.value = ''
+  clearPrivateState(); session.value = null; password.value = ''; username.value = ''; confirmPassword.value = ''; error.value = ''
   emit('session-change', null)
 }
 defineExpose({ invalidateSession })
@@ -144,10 +147,30 @@ async function refresh(operation = context()) {
   if (!operation.current() || sequence !== refreshSequence) return
   taskList.value = taskData.items; ticketList.value = ticketData.items
 }
+function toggleAuth() {
+  if (pending.value) return
+  generation += 1 // Ignore a late mount-time profile probe while filling the form.
+  registerMode.value = !registerMode.value
+  password.value = ''; confirmPassword.value = ''; error.value = ''
+}
+async function signUp() {
+  if (pending.value) return
+  if (password.value !== confirmPassword.value) { error.value = '两次输入的密码不一致'; return }
+  generation += 1
+  await handle(async operation => {
+    const result = await api.register(props.settings, username.value.trim(), password.value)
+    if (!operation.current()) return
+    username.value = result.username; password.value = ''; confirmPassword.value = ''
+    registerMode.value = false
+    emit('notice', '注册成功，请使用用户名和密码登录')
+  })
+}
 async function signIn() {
-  const loginEmail = email.value, loginPassword = password.value
+  if (pending.value) return
+  const loginEmail = username.value.trim(), loginPassword = password.value
   // Invalidate any mount-time session probe before starting a new login.
   invalidateSession()
+  username.value = loginEmail
   await handle(async operation => {
     await api.login(props.settings, loginEmail, loginPassword)
     if (!operation.current()) return
@@ -156,6 +179,7 @@ async function signIn() {
     setSession(profile)
     if (props.visible) await handle(refresh)
   })
+  if (!session.value) username.value = loginEmail
 }
 async function signOut() {
   // Clear personal data immediately, including responses still in flight.
